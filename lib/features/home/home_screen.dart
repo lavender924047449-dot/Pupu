@@ -83,7 +83,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final isMusicPlaying =
-        ref.watch(homeMusicPlayingProvider).valueOrNull ?? false;
+        ref.watch(homeMusicPlayingProvider).value ?? false;
 
     return Scaffold(
       body: LayoutBuilder(
@@ -147,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   onTap: () => _openTimer(context),
                   child: AnimatedBuilder(
                     animation: _blinkController,
-                    builder: (_, __) => Opacity(
+                    builder: (_, _) => Opacity(
                       opacity: 1 - (0.5 * _blinkController.value),
                       child: const Text(
                         'Flow with me',
@@ -225,10 +225,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(homeAudioServiceProvider).pauseForLeave();
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const TimerScreen(),
+        pageBuilder: (_, _, _) => const TimerScreen(),
         transitionDuration: pageTransitionDuration,
         reverseTransitionDuration: pageTransitionDuration,
-        transitionsBuilder: (_, animation, __, child) {
+        transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(
             opacity: CurvedAnimation(
               parent: animation,
@@ -246,10 +246,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(homeAudioServiceProvider).pauseForLeave();
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const NewArchiveScreen(),
+        pageBuilder: (_, _, _) => const NewArchiveScreen(),
         transitionDuration: pageTransitionDuration,
         reverseTransitionDuration: pageTransitionDuration,
-        transitionsBuilder: (_, animation, __, child) {
+        transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(
             opacity: CurvedAnimation(
               parent: animation,
@@ -267,10 +267,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(homeAudioServiceProvider).pauseForLeave();
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const PrivateSpaceScreen(),
+        pageBuilder: (_, _, _) => const PrivateSpaceScreen(),
         transitionDuration: pageTransitionDuration,
         reverseTransitionDuration: pageTransitionDuration,
-        transitionsBuilder: (_, animation, __, child) {
+        transitionsBuilder: (_, animation, _, child) {
           final curved = CurvedAnimation(
             parent: animation,
             curve: standardCurve,

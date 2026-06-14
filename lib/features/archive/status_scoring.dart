@@ -206,24 +206,30 @@ class StatusScoring {
           StatusLabel.unsuccessful: 1,
         },
         primaryLabels: [StatusLabel.unsuccessful],
-        secondaryLabels: const [],
+        secondaryLabels: [],
         includeInTrends: true,
       );
     }
 
     // A: Ideal
-    if (q1.contains(1))
+    if (q1.contains(1)) {
       scores[StatusLabel.ideal] = scores[StatusLabel.ideal]! + 2;
-    if (q2.contains(1))
+    }
+    if (q2.contains(1)) {
       scores[StatusLabel.ideal] = scores[StatusLabel.ideal]! + 2;
-    if (q3.contains(1))
+    }
+    if (q3.contains(1)) {
       scores[StatusLabel.ideal] = scores[StatusLabel.ideal]! + 2;
-    if (q4.contains(1))
+    }
+    if (q4.contains(1)) {
       scores[StatusLabel.ideal] = scores[StatusLabel.ideal]! + 2;
-    if (q7.contains(1))
+    }
+    if (q7.contains(1)) {
       scores[StatusLabel.ideal] = scores[StatusLabel.ideal]! + 2;
-    if (q52.contains(1))
+    }
+    if (q52.contains(1)) {
       scores[StatusLabel.ideal] = scores[StatusLabel.ideal]! + 1;
+    }
 
     // B: Dry / Hard
     if (q2.contains(3) || q2.contains(4)) {
@@ -232,14 +238,18 @@ class StatusScoring {
     if (q4.contains(4) || q4.contains(5)) {
       scores[StatusLabel.dryHard] = scores[StatusLabel.dryHard]! + 2;
     }
-    if (q2.contains(2))
+    if (q2.contains(2)) {
       scores[StatusLabel.dryHard] = scores[StatusLabel.dryHard]! + 1;
-    if (q4.contains(2))
+    }
+    if (q4.contains(2)) {
       scores[StatusLabel.dryHard] = scores[StatusLabel.dryHard]! + 1;
-    if (q7.contains(9))
+    }
+    if (q7.contains(9)) {
       scores[StatusLabel.dryHard] = scores[StatusLabel.dryHard]! + 1;
-    if (q7.contains(10))
+    }
+    if (q7.contains(10)) {
       scores[StatusLabel.dryHard] = scores[StatusLabel.dryHard]! + 1;
+    }
 
     // C: Incomplete / Not Smooth
     if (q3.contains(3)) {
@@ -268,14 +278,18 @@ class StatusScoring {
     }
 
     // D: Soft / Urgent
-    if (q4.contains(6))
+    if (q4.contains(6)) {
       scores[StatusLabel.softUrgent] = scores[StatusLabel.softUrgent]! + 2;
-    if (q7.contains(4))
+    }
+    if (q7.contains(4)) {
       scores[StatusLabel.softUrgent] = scores[StatusLabel.softUrgent]! + 2;
-    if (q7.contains(5))
+    }
+    if (q7.contains(5)) {
       scores[StatusLabel.softUrgent] = scores[StatusLabel.softUrgent]! + 2;
-    if (q4.contains(3))
+    }
+    if (q4.contains(3)) {
       scores[StatusLabel.softUrgent] = scores[StatusLabel.softUrgent]! + 1;
+    }
 
     // A 否决：Q2/Q3/Q4 不是 1，或 Q7 不是仅 1
     final q2IsOne = q2.length == 1 && q2.first == 1;

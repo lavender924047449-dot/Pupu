@@ -9,13 +9,13 @@ void main() {
 
   group('mixed note document', () {
     test('text + image + voice round-trips through json', () {
-      final doc = PrivateNoteDocument(
+      const doc = PrivateNoteDocument(
         ops: [
-          const PrivateDocTextOp('title line'),
+          PrivateDocTextOp('title line'),
           PrivateDocImageOp(
             PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
           ),
-          const PrivateDocTextOp('\nbody'),
+          PrivateDocTextOp('\nbody'),
           PrivateDocVoiceOp(
             PrivateVoiceData(id: 'v-1', path: '/tmp/v.m4a', durationMs: 800),
           ),
@@ -30,16 +30,16 @@ void main() {
 
     test('sequential embed delete keeps valid caret range', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('mix'),
+            PrivateDocTextOp('mix'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
             PrivateDocVoiceOp(
               PrivateVoiceData(id: 'v-1', path: '/tmp/v.m4a', durationMs: 500),
             ),
-            const PrivateDocTextOp('tail'),
+            PrivateDocTextOp('tail'),
           ],
         ),
       );

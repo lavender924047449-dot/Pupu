@@ -128,7 +128,7 @@ class TimerSessionSummaryPanel extends StatelessWidget {
           ),
         ),
         TextSpan(
-          text: ' ${sessionMinutes} min ${sessionSeconds} sec\n',
+          text: ' $sessionMinutes min $sessionSeconds sec\n',
           style: sfProNoShadowStyle(
             color: Colors.white,
             fontSize: 17,

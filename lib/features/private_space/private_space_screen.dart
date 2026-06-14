@@ -1,16 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
+import 'package:pupu/core/app_typography.dart';
 import 'package:pupu/features/private_space/private_entry_sort.dart';
-import 'package:pupu/features/private_space/private_note_blocks.dart';
 import 'package:pupu/features/private_space/private_note_document_controller.dart';
-import 'package:pupu/features/private_space/private_note_editor.dart';
 import 'package:pupu/features/private_space/private_space_clipboard.dart';
 import 'package:pupu/features/private_space/private_space_history.dart';
 import 'package:pupu/features/private_space/private_space_ui.dart';
@@ -56,6 +54,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     with TickerProviderStateMixin {
   static const int _maxImagesPerNote = 30;
   static const int _maxImageFileBytes = 12 * 1024 * 1024;
+  static const Duration _stageSwitchDuration = Duration(milliseconds: 820);
 
   static const List<_CategoryData> _defaultCategories = [
     _CategoryData(id: '1', name: 'Ideas', color: Color(0xFF3B82F6)),
@@ -140,16 +139,21 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   }
 
   /// Disposes the note controller. When [deferred] is true, teardown runs after
-  /// the next frame so TextFields are unmounted first (avoids focus-tree asserts).
+  /// AnimatedSwitcher finishes the outgoing notepad transition.
+  ///
+  /// A next-frame dispose is too early because the old notepad subtree remains
+  /// mounted during switch-out animation and still depends on controller-owned
+  /// FocusNodes/TextControllers.
   void _disposeDocController({bool deferred = false}) {
     final controller = _docController;
     if (controller == null) return;
     controller.removeListener(_onDocControllerChanged);
     _docController = null;
     if (deferred) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        controller.disposeController();
-      });
+      Future<void>.delayed(
+        _stageSwitchDuration + const Duration(milliseconds: 40),
+        controller.disposeController,
+      );
     } else {
       controller.disposeController();
     }
@@ -350,10 +354,20 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     final source = action == _ImageInsertAction.camera
         ? ImageSource.camera
         : ImageSource.gallery;
+    await _pickImageFromSource(source);
+  }
+
+  /// Permission gate + [ImagePicker] for a fixed [source].
+  Future<void> _pickImageFromSource(ImageSource source) async {
     final permission = source == ImageSource.camera
         ? PrivatePermissionKind.camera
         : PrivatePermissionKind.photoLibrary;
-    if (!await PrivatePermissionHelper.ensure(context, permission)) return;
+    if (!await _resolvePrivatePermission(
+      permission,
+      onRetry: () => unawaited(_pickImageFromSource(source)),
+    )) {
+      return;
+    }
 
     if ((_docController?.imageCount ?? 0) >= _maxImagesPerNote) {
       _showPrivateSnackBar('Maximum $_maxImagesPerNote images per note.');
@@ -511,9 +525,34 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     }
   }
 
+  Future<bool> _resolvePrivatePermission(
+    PrivatePermissionKind kind, {
+    VoidCallback? onRetry,
+  }) async {
+    final result = await PrivatePermissionHelper.ensure(kind);
+    if (!mounted) return false;
+    return resolvePrivatePermissionResult(
+      context: context,
+      result: result,
+      kind: kind,
+      onRetry: () {
+        if (!mounted) return;
+        if (onRetry != null) {
+          onRetry();
+        } else {
+          unawaited(_resolvePrivatePermission(kind, onRetry: onRetry));
+        }
+      },
+    );
+  }
+
   void _showPrivateSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: AppTypography.body()),
+      ),
+    );
   }
 
   Future<void> _addVoiceBlock() async {
@@ -781,7 +820,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   @override
   Widget build(BuildContext context) {
     final asyncEntries = ref.watch(entriesWithRefreshProvider);
-    final providerEntries = asyncEntries.valueOrNull;
+    final providerEntries = asyncEntries.value;
     if (providerEntries != null) {
       _entries = providerEntries;
     }
@@ -829,7 +868,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
             if (_stage == _Stage.transitioning)
               const Positioned.fill(child: PrivateSpaceParticleOverlay()),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 820),
+              duration: _stageSwitchDuration,
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInOutCubic,
               child: switch (_stage) {
@@ -959,9 +998,10 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
                                     );
                                     if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text(
                                           'Copied. You can share it now.',
+                                          style: AppTypography.body(),
                                         ),
                                       ),
                                     );
@@ -1007,8 +1047,11 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
                         await Clipboard.setData(ClipboardData(text: selected));
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Copied. You can share it now.'),
+                          SnackBar(
+                            content: Text(
+                              'Copied. You can share it now.',
+                              style: AppTypography.body(),
+                            ),
                           ),
                         );
                       },
@@ -1141,18 +1184,14 @@ class _CircleIconButton extends StatelessWidget {
   const _CircleIconButton({
     required this.icon,
     required this.onTap,
-    this.highlighted = false,
-    this.compact = false,
-    this.mini = false,
-    this.enabled = true,
   });
 
   final IconData icon;
   final VoidCallback onTap;
-  final bool highlighted;
-  final bool compact;
-  final bool mini;
-  final bool enabled;
+  final bool highlighted = false;
+  final bool compact = false;
+  final bool mini = false;
+  final bool enabled = true;
 
   @override
   Widget build(BuildContext context) {
@@ -1206,40 +1245,6 @@ class _CircleIconButton extends StatelessWidget {
   }
 }
 
-class _NoteBackgroundGradientPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gradient1 = RadialGradient(
-      center: const Alignment(0, -0.6),
-      radius: 1.5,
-      colors: [
-        const Color(0xFFFFDC64).withValues(alpha: 0.25),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.4],
-    );
-
-    final gradient2 = RadialGradient(
-      center: const Alignment(0, -0.6),
-      radius: 1.5,
-      colors: [
-        Colors.white.withValues(alpha: 0.15),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.4],
-    );
-
-    final paint1 = Paint()..shader = gradient1.createShader(Offset.zero & size);
-    final paint2 = Paint()..shader = gradient2.createShader(Offset.zero & size);
-
-    canvas.drawRect(Offset.zero & size, paint1);
-    canvas.drawRect(Offset.zero & size, paint2);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class _BrightStar extends StatefulWidget {
   const _BrightStar({required this.onTap});
 
@@ -1269,7 +1274,7 @@ class _BrightStarState extends State<_BrightStar>
       onTap: widget.onTap,
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           final eased =
               CurvedAnimation(parent: _controller, curve: Curves.easeInOut).value;
           final pulse = Curves.easeInOutSine.transform(eased);

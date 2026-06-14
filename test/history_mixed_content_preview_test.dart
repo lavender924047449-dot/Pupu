@@ -51,7 +51,7 @@ void main() {
     final entry = PrivateEntry(
       id: 'entry-2',
       title: '',
-      document: PrivateNoteDocument(
+      document: const PrivateNoteDocument(
         ops: [
           PrivateDocTextOp(
             '大三的深夜，情绪翻涌，但还好有一间只属于自己的房间。'

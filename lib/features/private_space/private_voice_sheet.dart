@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:pupu/core/app_typography.dart';
+import 'package:pupu/features/private_space/private_space_ui.dart';
 import 'package:pupu/models/private_entry.dart';
 import 'package:pupu/services/private_media_storage.dart';
 import 'package:pupu/services/private_permission_helper.dart';
@@ -33,9 +35,15 @@ class _PrivateVoiceRecordSheetState extends State<PrivateVoiceRecordSheet> {
   }
 
   Future<void> _start() async {
-    final ok = await PrivatePermissionHelper.ensure(
-      context,
+    final result = await PrivatePermissionHelper.ensure(
       PrivatePermissionKind.microphone,
+    );
+    if (!mounted) return;
+    final ok = await resolvePrivatePermissionResult(
+      context: context,
+      result: result,
+      kind: PrivatePermissionKind.microphone,
+      onRetry: _start,
     );
     if (!ok || !mounted) return;
 
@@ -137,16 +145,19 @@ class _PrivateVoiceRecordSheetState extends State<PrivateVoiceRecordSheet> {
           const SizedBox(height: 16),
           Text(
             _timeLabel,
-            style: const TextStyle(
-              color: Color(0xFFF6E6B3),
-              fontSize: 32,
-              fontWeight: FontWeight.w300,
+            style: AppTypography.body(
+              color: const Color(0xFFF6E6B3),
+              size: 32,
+              weight: FontWeight.w300,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Max 5:00',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
+            style: AppTypography.body(
+              color: Colors.white.withValues(alpha: 0.45),
+              size: 12,
+            ),
           ),
           const SizedBox(height: 24),
           Row(
@@ -195,7 +206,7 @@ class _PrivateVoiceRecordSheetState extends State<PrivateVoiceRecordSheet> {
           ),
         ),
         const SizedBox(height: 6),
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+        Text(label, style: AppTypography.body(color: Colors.white60, size: 11)),
       ],
     );
   }

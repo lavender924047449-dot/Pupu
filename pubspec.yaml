@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 0.1.0+1
 
 environment:
-  sdk: ^3.5.0
+  sdk: ^3.12.0
 
 dependencies:
   flutter:
@@ -14,21 +14,21 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # 状态管理
-  flutter_riverpod: ^2.6.0
+  flutter_riverpod: ^3.3.2
 
   # Supabase (云端备份与认证)
   supabase_flutter: ^2.8.0
 
   # 音频（计时页，本地 + 淡入淡出）
   audioplayers: ^6.0.0
-  record: ^6.2.0
+  record: ^7.1.0
 
   # 本地存储
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   path_provider: ^2.1.4
   image_picker: ^1.1.2
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.0
 
   # 工具
   intl: ^0.20.2
@@ -38,9 +38,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
-  hive_generator: ^2.0.1
-  build_runner: ^2.4.13
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

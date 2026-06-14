@@ -2,11 +2,13 @@
 /// 背景: hug_1.png + 排便日历热力图 / 图表分析
 /// 入口: 主页右下角星星光晕
 /// 交互: 左右滑动切换日历/图表
+library;
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:pupu/core/app_typography.dart';
 import 'package:pupu/features/archive/day_records_sheet.dart';
 import 'package:pupu/features/archive/logs_card.dart';
 import 'package:pupu/features/archive/logs_day_utils.dart';
@@ -251,8 +253,10 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
     if (dayRecords.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text('${DateFormat('MMM d, yyyy').format(date)} - No records'),
+          content: Text(
+            '${DateFormat('MMM d, yyyy').format(date)} - No records',
+            style: AppTypography.body(),
+          ),
           backgroundColor: Colors.grey[800],
         ),
       );
@@ -483,7 +487,7 @@ class _LogCalendarCard extends StatelessWidget {
                         ),
                       ),
                       // Past Month Activity 标题 - 横向居中
-                      Positioned(
+                      const Positioned(
                         left: 0,
                         right: 0,
                         top: 445,
@@ -507,7 +511,7 @@ class _LogCalendarCard extends StatelessWidget {
                         child: _buildColorScaleCard(),
                       ),
                       // Tip 文本 - 最下方居中
-                      Positioned(
+                      const Positioned(
                         left: 11,
                         right: 11,
                         bottom: 16,
@@ -515,7 +519,7 @@ class _LogCalendarCard extends StatelessWidget {
                           child: Text.rich(
                             TextSpan(
                               children: [
-                                const TextSpan(
+                                TextSpan(
                                   text: 'Tip',
                                   style: TextStyle(
                                     color: Colors.white,

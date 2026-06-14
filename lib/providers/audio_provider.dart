@@ -1,5 +1,6 @@
 /// 音频 Provider
 /// 计时页：本地播放、单曲循环
+library;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';

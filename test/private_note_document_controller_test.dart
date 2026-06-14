@@ -15,13 +15,13 @@ void main() {
       final controller = PrivateNoteDocumentController();
 
       controller.insertImageAtCaret(
-        PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
+        const PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
       );
       expect(controller.isCaretOnEmbed, isTrue);
       expect(controller.caret.textOffset, 1);
 
       controller.insertImageAtCaret(
-        PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
+        const PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
       );
 
       final ops = controller.buildDocument().ops;
@@ -35,12 +35,12 @@ void main() {
 
     test('text between images is kept when it has content', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('between'),
+            PrivateDocTextOp('between'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
             ),
@@ -57,7 +57,7 @@ void main() {
 
     test('ensureTextOpAt inserts text segment after image', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
@@ -79,13 +79,13 @@ void main() {
 
     test('removing embed between text segments merges without empty gaps', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hello'),
+            PrivateDocTextOp('hello'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('world'),
+            PrivateDocTextOp('world'),
           ],
         ),
       );
@@ -119,13 +119,13 @@ void main() {
 
     test('pasteTextAtCaret inserts into text segment after embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('first'),
+            PrivateDocTextOp('first'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('second'),
+            PrivateDocTextOp('second'),
           ],
         ),
       );
@@ -203,13 +203,13 @@ void main() {
       });
 
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -254,13 +254,13 @@ void main() {
       });
 
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -300,13 +300,13 @@ void main() {
       });
 
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -342,11 +342,11 @@ void main() {
       PrivateSpaceClipboard.copyImage(sample);
 
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-old', path: '/tmp/old.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -366,11 +366,11 @@ void main() {
     test('pasteTextAtCaret replaces semantic selection with internal text payload', () {
       PrivateSpaceClipboard.copyText('XYZ');
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-old-2', path: '/tmp/old2.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -389,11 +389,11 @@ void main() {
 
     test('external plain text replaces semantic selection by pasteTextAtCaret', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-old-3', path: '/tmp/old3.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -443,13 +443,13 @@ void main() {
   group('PrivateNoteDocumentController embed-as-character', () {
     test('deleteBackwardFromTextFieldStart lands on embed right without deleting', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hello'),
+            PrivateDocTextOp('hello'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('world'),
+            PrivateDocTextOp('world'),
           ],
         ),
       );
@@ -469,13 +469,13 @@ void main() {
 
     test('two-step backspace from line below embed deletes image', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hello'),
+            PrivateDocTextOp('hello'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('world'),
+            PrivateDocTextOp('world'),
           ],
         ),
       );
@@ -495,13 +495,13 @@ void main() {
 
     test('moveCaretLeft from text start lands on previous text end', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hi'),
+            PrivateDocTextOp('hi'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('there'),
+            PrivateDocTextOp('there'),
           ],
         ),
       );
@@ -520,12 +520,12 @@ void main() {
 
     test('insertNewlineAtCaret after embed inserts empty line before next text', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('line'),
+            PrivateDocTextOp('line'),
           ],
         ),
       );
@@ -545,13 +545,13 @@ void main() {
 
     test('insertNewlineAtCaret after embed with explicit spacer reuses that spacer', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp(''),
-            const PrivateDocTextOp('line'),
+            PrivateDocTextOp(''),
+            PrivateDocTextOp('line'),
           ],
         ),
       );
@@ -567,7 +567,7 @@ void main() {
 
     test('insertNewlineAtCaret after embed at end creates single empty line', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocVoiceOp(
               PrivateVoiceData(id: 'voice-1', path: '/tmp/v.m4a', durationMs: 900),
@@ -589,12 +589,12 @@ void main() {
 
     test('deleteable spacer text between embeds is removed by backspace', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp(''),
+            PrivateDocTextOp(''),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
             ),
@@ -615,13 +615,13 @@ void main() {
 
     test('newline spacer after embed lands caret on embed right edge', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('\n'),
-            const PrivateDocTextOp('below'),
+            PrivateDocTextOp('\n'),
+            PrivateDocTextOp('below'),
           ],
         ),
       );
@@ -643,12 +643,12 @@ void main() {
 
     test('non-deleteable spacer-like text at embed boundary keeps content', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('keep'),
+            PrivateDocTextOp('keep'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
             ),
@@ -667,13 +667,13 @@ void main() {
 
     test('backspace removes empty line after embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp(''),
-            const PrivateDocTextOp('below'),
+            PrivateDocTextOp(''),
+            PrivateDocTextOp('below'),
           ],
         ),
       );
@@ -692,10 +692,10 @@ void main() {
 
     test('insertNewlineAtCaret before embed appends newline to previous text', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('top'),
-            const PrivateDocTextOp('\n'),
+            PrivateDocTextOp('top'),
+            PrivateDocTextOp('\n'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
@@ -715,13 +715,13 @@ void main() {
 
     test('delete from text end before embed first lands on embed left then deletes', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hello'),
+            PrivateDocTextOp('hello'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('world'),
+            PrivateDocTextOp('world'),
           ],
         ),
       );
@@ -743,9 +743,9 @@ void main() {
 
     test('placeCaretBeforeEmbed lands on embed with textOffset 0', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hi'),
+            PrivateDocTextOp('hi'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
@@ -763,12 +763,12 @@ void main() {
 
     test('placeCaretAfterEmbed lands on embed with textOffset 1', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('tail'),
+            PrivateDocTextOp('tail'),
           ],
         ),
       );
@@ -783,13 +783,13 @@ void main() {
 
     test('deleteBackwardOnEmbed from left caret does not remove embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hello'),
+            PrivateDocTextOp('hello'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('world'),
+            PrivateDocTextOp('world'),
           ],
         ),
       );
@@ -804,13 +804,13 @@ void main() {
 
     test('deleteBackwardOnEmbed from right caret removes embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hello'),
+            PrivateDocTextOp('hello'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
-            const PrivateDocTextOp('world'),
+            PrivateDocTextOp('world'),
           ],
         ),
       );
@@ -827,9 +827,9 @@ void main() {
 
     test('backspace delete embed lands on previous line before embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('line1\nline2'),
+            PrivateDocTextOp('line1\nline2'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
@@ -849,12 +849,12 @@ void main() {
 
     test('deleteVoice preserves caret offset in text after embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
             PrivateDocVoiceOp(
               PrivateVoiceData(id: 'voice-1', path: '/tmp/v.m4a', durationMs: 900),
             ),
-            const PrivateDocTextOp('line1\nline2\nline3'),
+            PrivateDocTextOp('line1\nline2\nline3'),
           ],
         ),
       );
@@ -895,13 +895,13 @@ void main() {
 
     test('deleteVoice keeps caret on empty line after embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('intro'),
+            PrivateDocTextOp('intro'),
             PrivateDocVoiceOp(
               PrivateVoiceData(id: 'voice-1', path: '/tmp/v.m4a', durationMs: 900),
             ),
-            const PrivateDocTextOp(''),
+            PrivateDocTextOp(''),
           ],
         ),
       );
@@ -918,9 +918,9 @@ void main() {
 
     test('removeImageAt with caret on embed lands on line before embed', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('line1\nline2\nline3'),
+            PrivateDocTextOp('line1\nline2\nline3'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
@@ -939,9 +939,9 @@ void main() {
 
     test('removeImageAt syncs caret from text field selection before delete', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('line1\nline2\nline3'),
+            PrivateDocTextOp('line1\nline2\nline3'),
             PrivateDocImageOp(
               PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
@@ -962,13 +962,13 @@ void main() {
 
     test('deleteForwardOnEmbed removes embed only from left caret', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('hello'),
+            PrivateDocTextOp('hello'),
             PrivateDocVoiceOp(
               PrivateVoiceData(id: 'voice-1', path: '/tmp/v.m4a', durationMs: 900),
             ),
-            const PrivateDocTextOp('world'),
+            PrivateDocTextOp('world'),
           ],
         ),
       );
@@ -986,12 +986,12 @@ void main() {
 
     test('backspace repeatedly removes consecutive embeds without jumping to start', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('head'),
+            PrivateDocTextOp('head'),
             PrivateDocImageOp(PrivateImageData(id: 'img-1', path: '/tmp/a.jpg')),
             PrivateDocImageOp(PrivateImageData(id: 'img-2', path: '/tmp/b.jpg')),
-            const PrivateDocTextOp('tail'),
+            PrivateDocTextOp('tail'),
           ],
         ),
       );
@@ -1011,12 +1011,12 @@ void main() {
 
     test('deleteSelectionBySemanticRange removes pure embed range and collapses caret', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-1', path: '/tmp/a.jpg')),
             PrivateDocImageOp(PrivateImageData(id: 'img-2', path: '/tmp/b.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -1035,11 +1035,11 @@ void main() {
 
     test('reverse semantic selection deletion works for mixed text/embed range', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-1', path: '/tmp/a.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -1070,11 +1070,11 @@ void main() {
       });
 
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-1', path: '/tmp/a.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -1094,11 +1094,11 @@ void main() {
 
     test('pasteTextAtCaret replaces reverse semantic selection with plain text', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-1', path: '/tmp/a.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -1119,11 +1119,11 @@ void main() {
     test('internal copied text replaces reverse semantic selection', () {
       PrivateSpaceClipboard.copyText('X');
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('ab'),
+            PrivateDocTextOp('ab'),
             PrivateDocImageOp(PrivateImageData(id: 'img-1', path: '/tmp/a.jpg')),
-            const PrivateDocTextOp('cd'),
+            PrivateDocTextOp('cd'),
           ],
         ),
       );
@@ -1177,14 +1177,14 @@ void main() {
 
     test('moveOp undo restores original order', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('a'),
+            PrivateDocTextOp('a'),
             PrivateDocImageOp(
-              const PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
+              PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
             PrivateDocImageOp(
-              const PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
+              PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
             ),
           ],
         ),
@@ -1223,11 +1223,11 @@ void main() {
 
     test('caret movement alone does not consume undo steps', () {
       final controller = PrivateNoteDocumentController(
-        initial: PrivateNoteDocument(
+        initial: const PrivateNoteDocument(
           ops: [
-            const PrivateDocTextOp('a'),
+            PrivateDocTextOp('a'),
             PrivateDocImageOp(
-              const PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
+              PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
             ),
           ],
         ),

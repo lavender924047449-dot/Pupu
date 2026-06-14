@@ -91,7 +91,7 @@ void main() {
   });
 
   test('resolveDistributionLabel picks highest-severity primary', () {
-    final custom = const StatusScoreResult(
+    const custom = StatusScoreResult(
       scores: {
         StatusLabel.ideal: 2,
         StatusLabel.dryHard: 2,

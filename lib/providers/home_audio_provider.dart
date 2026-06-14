@@ -25,8 +25,18 @@ final homeMusicPlayingProvider = StreamProvider<bool>((ref) {
   return player.onPlayerStateChanged.map((state) => state == PlayerState.playing);
 });
 
+class HomeMusicEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setEnabled(bool enabled) => state = enabled;
+}
+
 /// 供 UI 判断：是否已经被用户开启（包含 pause 待续播）。
-final homeMusicEnabledProvider = StateProvider<bool>((_) => false);
+final homeMusicEnabledProvider =
+    NotifierProvider<HomeMusicEnabledNotifier, bool>(
+      HomeMusicEnabledNotifier.new,
+    );
 
 class HomeAudioService {
   HomeAudioService(this._player) {
@@ -46,14 +56,14 @@ class HomeAudioService {
   Future<void> onStarTap(WidgetRef ref) async {
     if (!userWantsMusic) {
       userWantsMusic = true;
-      ref.read(homeMusicEnabledProvider.notifier).state = true;
+      ref.read(homeMusicEnabledProvider.notifier).setEnabled(true);
       await playToday();
       return;
     }
 
     if (isPlaying) {
       await stop();
-      ref.read(homeMusicEnabledProvider.notifier).state = false;
+      ref.read(homeMusicEnabledProvider.notifier).setEnabled(false);
       return;
     }
 

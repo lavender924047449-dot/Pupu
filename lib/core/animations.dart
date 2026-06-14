@@ -1,5 +1,6 @@
 /// 公共动效配置
 /// 呼吸周期、页面过渡、曲线（禁止弹跳）
+library;
 
 import 'package:flutter/material.dart';
 import 'package:pupu/core/constants.dart';

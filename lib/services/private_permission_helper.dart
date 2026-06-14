@@ -1,13 +1,22 @@
-import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
+
 import 'package:permission_handler/permission_handler.dart';
 
-/// Unified permission flow for Private Space media features.
+/// Media permissions used by Private Space features.
 enum PrivatePermissionKind {
   photoLibrary,
   camera,
   microphone,
 }
 
+/// Semantic outcome of [PrivatePermissionHelper.ensure] — UI layer maps to dialogs/snacks.
+enum PrivatePermissionResult {
+  granted,
+  deniedRetryable,
+  deniedPermanently,
+}
+
+/// Permission query/request only — no UI (see PS-011 / PLAN-DIALOG-001).
 class PrivatePermissionHelper {
   static Permission _permissionFor(PrivatePermissionKind kind) {
     return switch (kind) {
@@ -17,7 +26,8 @@ class PrivatePermissionHelper {
     };
   }
 
-  static String _label(PrivatePermissionKind kind) {
+  /// English label for dialogs and snack messages.
+  static String labelFor(PrivatePermissionKind kind) {
     return switch (kind) {
       PrivatePermissionKind.photoLibrary => 'Photo library',
       PrivatePermissionKind.camera => 'Camera',
@@ -25,81 +35,45 @@ class PrivatePermissionHelper {
     };
   }
 
-  /// Returns true when the permission is granted (or limited on iOS photos).
-  static Future<bool> ensure(
-    BuildContext context,
-    PrivatePermissionKind kind,
-  ) async {
+  /// Pure mapping from [PermissionStatus] to [PrivatePermissionResult] (unit-testable).
+  static PrivatePermissionResult resultFromStatus(PermissionStatus status) {
+    if (status.isGranted || status.isLimited) {
+      return PrivatePermissionResult.granted;
+    }
+    if (status.isPermanentlyDenied) {
+      return PrivatePermissionResult.deniedPermanently;
+    }
+    return PrivatePermissionResult.deniedRetryable;
+  }
+
+  /// Whether [ensure] should query/request OS permission before opening media UI.
+  ///
+  /// Android gallery uses the system Photo Picker via `image_picker` — no
+  /// READ_MEDIA_IMAGES preflight (see image_picker Android docs).
+  static bool requiresPreflight(PrivatePermissionKind kind) {
+    if (kind == PrivatePermissionKind.photoLibrary && Platform.isAndroid) {
+      return false;
+    }
+    return true;
+  }
+
+  /// Requests permission when needed and returns a semantic result (no UI).
+  static Future<PrivatePermissionResult> ensure(PrivatePermissionKind kind) async {
+    if (!requiresPreflight(kind)) {
+      return PrivatePermissionResult.granted;
+    }
+
     final permission = _permissionFor(kind);
     var status = await permission.status;
 
-    if (status.isGranted || status.isLimited) return true;
+    if (status.isGranted || status.isLimited) {
+      return PrivatePermissionResult.granted;
+    }
 
     if (status.isDenied) {
       status = await permission.request();
-      if (status.isGranted || status.isLimited) return true;
     }
 
-    if (!context.mounted) return false;
-
-    if (status.isPermanentlyDenied) {
-      await _showSettingsDialog(context, kind);
-      return false;
-    }
-
-    await _showDeniedSnack(context, kind);
-    return false;
-  }
-
-  static Future<void> _showDeniedSnack(
-    BuildContext context,
-    PrivatePermissionKind kind,
-  ) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_label(kind)} access is required for this action.'),
-        action: SnackBarAction(
-          label: 'Retry',
-          onPressed: () => ensure(context, kind),
-        ),
-      ),
-    );
-  }
-
-  static Future<void> _showSettingsDialog(
-    BuildContext context,
-    PrivatePermissionKind kind,
-  ) async {
-    final label = _label(kind);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF121A26),
-        title: Text(
-          '$label blocked',
-          style: const TextStyle(color: Color(0xFFF6E6B3)),
-        ),
-        content: Text(
-          'Please enable $label in system settings to continue.',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await openAppSettings();
-            },
-            child: const Text(
-              'Open Settings',
-              style: TextStyle(color: Color(0xFFE2BE57)),
-            ),
-          ),
-        ],
-      ),
-    );
+    return resultFromStatus(status);
   }
 }

@@ -1,5 +1,6 @@
 /// 计时页面
 /// Figma 设计集成 - iPhone 14 & 15 Pro - 1
+library;
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -7,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pupu/core/every_moment_texts.dart';
+import 'package:pupu/core/warm_sentences_timer.dart';
 import 'package:pupu/features/questionnaire/questionnaire_flow.dart';
 import 'package:pupu/features/questionnaire/questionnaire_codec.dart';
 import 'package:pupu/features/timer/session_record_utils.dart';
@@ -14,6 +16,7 @@ import 'package:pupu/features/timer/widgets/audio_picker.dart';
 import 'package:pupu/features/timer/widgets/timer_dialogs.dart';
 import 'package:pupu/features/timer/widgets/timer_session_summary.dart';
 import 'package:pupu/features/timer/widgets/timer_wave_painter.dart';
+import 'package:pupu/features/timer/widgets/warm_sentence_overlay.dart';
 import 'package:pupu/providers/audio_provider.dart';
 import 'package:pupu/providers/home_audio_provider.dart';
 import 'package:pupu/providers/records_provider.dart';
@@ -26,11 +29,14 @@ class TimerScreen extends ConsumerStatefulWidget {
 }
 
 class _TimerScreenState extends ConsumerState<TimerScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _cloudGlowController;
   late final AnimationController _displaySwitchController;
   late final AnimationController _waveAnimationController;
+  late final AnimationController _warmSentenceController;
+  late final Animation<double> _warmSentenceOpacity;
   Timer? _timer;
+  Timer? _warmIntervalTimer;
 
   Duration _elapsed = Duration.zero;
   Duration _lastSessionDuration = Duration.zero;
@@ -48,11 +54,18 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   String _currentEveryMomentText = '';
   bool _showAudioPanel = false;
   int? _selectedAudioIndex;
+  DateTime? _runningStartedAt;
+  Duration _elapsedBeforeCurrentRun = Duration.zero;
   DateTime? _sessionStartedAt;
   String? _committedRecordId;
   SessionSummaryStats? _summaryStats;
   bool _handlingBackNavigation = false;
   bool _isExiting = false;
+  bool _warmIsDisplaying = false;
+  int _warmIntervalRemainingMs = 0;
+  DateTime? _warmIntervalStartedAt;
+  String _currentWarmSentence = '';
+  final Set<int> _usedWarmIndices = <int>{};
 
   int _currentBackgroundIndex = 0;
   final List<String> _backgroundImages = const [
@@ -64,7 +77,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
         Shadow(
           offset: const Offset(0, 1),
           blurRadius: 0,
-          color: const Color(0xFF000000).withOpacity(0.25),
+          color: const Color(0xFF000000).withValues(alpha: 0.25),
         ),
       ];
 
@@ -130,6 +143,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _cloudGlowController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -160,16 +174,42 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
       duration: const Duration(milliseconds: 500),
     );
 
+    _warmSentenceController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 21),
+    );
+    _warmSentenceOpacity = TweenSequence<double>([
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 3,
+      ),
+      TweenSequenceItem<double>(
+        tween: ConstantTween<double>(1.0),
+        weight: 15,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 3,
+      ),
+    ]).animate(_warmSentenceController);
+    _warmSentenceController.addStatusListener(_onWarmAnimationStatus);
+
     _currentEveryMomentText = _pickRandomEveryMomentText();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     ref.read(timerAudioServiceProvider).stop();
     _timer?.cancel();
+    _warmIntervalTimer?.cancel();
     _cloudGlowController.dispose();
     _displaySwitchController.dispose();
     _waveAnimationController.dispose();
+    _warmSentenceController.removeStatusListener(_onWarmAnimationStatus);
+    _warmSentenceController.dispose();
     _questionnaireFlow.dispose();
     _finishLoggingController.dispose();
     _audioRotationController.dispose();
@@ -184,6 +224,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     return PopScope(
       onPopInvokedWithResult: (didPop, _) async {
         if (!didPop || _handlingBackNavigation) return;
+        // 系统返回上一页时立即停掉 Timer 音频，避免等待 dispose 造成残留。
+        unawaited(ref.read(timerAudioServiceProvider).stop());
         if (!_showSessionPanel) return;
         _handlingBackNavigation = true;
         await _resumeHomeMusicIfEnabled();
@@ -203,7 +245,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       fit: StackFit.expand,
                       children: [
                         ...previousChildren,
-                        if (currentChild != null) currentChild,
+                        ?currentChild,
                       ],
                     );
                   },
@@ -257,6 +299,19 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               if (!_showSessionPanel) ...[
                 SafeArea(child: _buildTimerLayout(screenSize)),
                 Positioned(
+                  top: screenSize.height * 0.066 + screenSize.width * 0.56,
+                  bottom: 286,
+                  left: 0,
+                  right: 0,
+                  child: Align(
+                    alignment: const Alignment(0, -0.50),
+                    child: WarmSentenceOverlay(
+                      animation: _warmSentenceOpacity,
+                      text: _currentWarmSentence,
+                    ),
+                  ),
+                ),
+                Positioned(
                   left: 0,
                   right: 0,
                   bottom: 88,
@@ -277,6 +332,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           ),
         ),
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 需求：切后台不停止音乐；计时通过 wall clock 在恢复时补齐。
+    if (state == AppLifecycleState.resumed &&
+        _uiState == _TimerUiState.running &&
+        _runningStartedAt != null) {
+      setState(_syncElapsedWithWallClock);
+    }
   }
 
   void _switchBackgroundImage() {
@@ -429,9 +494,22 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
         });
       },
       onMaybeLater: _showMaybeLaterDialog,
-      onFinishQuestionnaire: _finishQuestionnaire,
+      onFinishQuestionnaire: _onFinishLoggingTapped,
       sfProNoShadowStyle: _sfProNoShadowStyle,
       josefinStyle: _josefinStyle,
+    );
+  }
+
+  Future<void> _onFinishLoggingTapped() async {
+    if (_isExiting) return;
+    if (_committedRecordId == null) return;
+
+    await showTimerGlassDialog(
+      context,
+      child: TimerFinishSessionDialog(
+        onNo: () {},
+        onYes: _finishQuestionnaire,
+      ),
     );
   }
 
@@ -549,7 +627,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                 width: 119,
                 height: 54,
                 decoration: ShapeDecoration(
-                  color: Colors.white.withOpacity(0.07),
+                  color: Colors.white.withValues(alpha: 0.07),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -590,6 +668,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
   void _startTimer() {
     _timer?.cancel();
+    _stopWarm();
     setState(() {
       _showSessionPanel = false;
       _showLogWithMeQuestionnaire = false;
@@ -598,6 +677,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
       _committedRecordId = null;
       _summaryStats = null;
       _elapsed = Duration.zero;
+      _elapsedBeforeCurrentRun = Duration.zero;
+      _runningStartedAt = DateTime.now();
       _uiState = _TimerUiState.running;
       _waveIsAnimating = true;
       // 重置相位偏移
@@ -609,25 +690,31 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _uiState != _TimerUiState.running) return;
       setState(() {
-        _elapsed += const Duration(seconds: 1);
+        _syncElapsedWithWallClock();
       });
     });
+    _scheduleWarmSentence(const Duration(seconds: 25));
   }
 
   void _pauseTimer() {
     _timer?.cancel();
     setState(() {
+      _syncElapsedWithWallClock();
+      _elapsedBeforeCurrentRun = _elapsed;
+      _runningStartedAt = null;
       _uiState = _TimerUiState.paused;
       _waveIsAnimating = false;
       // 保存当前相位，暂停时记录波形位置
       _wavePhaseOffset += _waveAnimationController.value * 2 * math.pi;
     });
     _waveAnimationController.stop();
+    _pauseWarm();
   }
 
   void _resumeTimer() {
     _timer?.cancel();
     setState(() {
+      _runningStartedAt = DateTime.now();
       _uiState = _TimerUiState.running;
       _waveIsAnimating = true;
     });
@@ -637,9 +724,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _uiState != _TimerUiState.running) return;
       setState(() {
-        _elapsed += const Duration(seconds: 1);
+        _syncElapsedWithWallClock();
       });
     });
+    _resumeWarm();
   }
 
   void _stopTimer() {
@@ -650,13 +738,17 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
   void _doStopTimer() {
     // 真正执行停止逻辑
+    _syncElapsedWithWallClock();
     final sessionStartedAt = _sessionStartedAt ?? DateTime.now();
     final elapsedAtStop = _elapsed;
     _timer?.cancel();
     setState(() {
       _lastSessionDuration = elapsedAtStop;
       _currentEveryMomentText = _pickRandomEveryMomentText();
+      _currentWarmSentence = '';
       _elapsed = Duration.zero;
+      _elapsedBeforeCurrentRun = Duration.zero;
+      _runningStartedAt = null;
       _uiState = _TimerUiState.idle;
       _waveIsAnimating = false;
       _resetAudioOnSessionEnter();
@@ -667,10 +759,17 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
       _wavePhaseOffset = 0.0;
     });
     _waveAnimationController.stop();
+    _stopWarm();
     unawaited(_commitSessionAndComputeSummary(
       startedAt: sessionStartedAt,
       elapsed: elapsedAtStop,
     ));
+  }
+
+  void _syncElapsedWithWallClock() {
+    if (_runningStartedAt == null) return;
+    final runningDuration = DateTime.now().difference(_runningStartedAt!);
+    _elapsed = _elapsedBeforeCurrentRun + runningDuration;
   }
 
   Future<void> _commitSessionAndComputeSummary({
@@ -715,6 +814,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     if (_handlingBackNavigation || _isExiting) return;
     _handlingBackNavigation = true;
     _isExiting = true;
+    await ref.read(timerAudioServiceProvider).stop();
     await _resumeHomeMusicIfEnabled();
     if (mounted) Navigator.of(context).pop();
   }
@@ -730,39 +830,116 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     return picked;
   }
 
+  void _onWarmAnimationStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    if (!mounted || _uiState != _TimerUiState.running || _showSessionPanel) return;
+    _warmIsDisplaying = false;
+    _scheduleNextWarmInterval();
+  }
+
+  void _scheduleNextWarmInterval() {
+    final elapsedSeconds = _elapsed.inSeconds;
+    final intervalMs =
+        elapsedSeconds < 180 ? 50000 : elapsedSeconds < 600 ? 120000 : 240000;
+    _scheduleWarmSentence(Duration(milliseconds: intervalMs));
+  }
+
+  void _scheduleWarmSentence(Duration delay) {
+    _warmIntervalTimer?.cancel();
+    _warmIsDisplaying = false;
+    _warmIntervalRemainingMs = delay.inMilliseconds;
+    _warmIntervalStartedAt = DateTime.now();
+    _warmIntervalTimer = Timer(delay, _triggerWarmSentence);
+  }
+
+  void _triggerWarmSentence() {
+    if (!mounted || _uiState != _TimerUiState.running || _showSessionPanel) return;
+    _warmIntervalTimer = null;
+    _warmIntervalStartedAt = null;
+    _warmIntervalRemainingMs = 0;
+    setState(() {
+      _currentWarmSentence = _pickWarmSentence();
+      _warmIsDisplaying = true;
+    });
+    _warmSentenceController.forward(from: 0.0);
+  }
+
+  String _pickWarmSentence() {
+    if (kWarmSentencesTimer.isEmpty) return '';
+    if (_usedWarmIndices.length >= kWarmSentencesTimer.length) {
+      _usedWarmIndices.clear();
+    }
+
+    int index = _random.nextInt(kWarmSentencesTimer.length);
+    while (_usedWarmIndices.contains(index)) {
+      index = _random.nextInt(kWarmSentencesTimer.length);
+    }
+    _usedWarmIndices.add(index);
+    return kWarmSentencesTimer[index];
+  }
+
+  void _pauseWarm() {
+    if (_warmIsDisplaying) {
+      _warmSentenceController.stop();
+      return;
+    }
+    _warmIntervalTimer?.cancel();
+    _warmIntervalTimer = null;
+    final startedAt = _warmIntervalStartedAt;
+    if (startedAt == null) return;
+    final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
+    final remainingMs = (_warmIntervalRemainingMs - elapsedMs)
+        .clamp(0, _warmIntervalRemainingMs)
+        .toInt();
+    _warmIntervalRemainingMs = remainingMs;
+    _warmIntervalStartedAt = null;
+  }
+
+  void _resumeWarm() {
+    if (_warmIsDisplaying) {
+      _warmSentenceController.forward();
+      return;
+    }
+    if (_warmIntervalRemainingMs <= 0) return;
+    _warmIntervalStartedAt = DateTime.now();
+    _warmIntervalTimer = Timer(
+      Duration(milliseconds: _warmIntervalRemainingMs),
+      _triggerWarmSentence,
+    );
+  }
+
+  void _stopWarm() {
+    _warmIntervalTimer?.cancel();
+    _warmIntervalTimer = null;
+    _warmSentenceController.stop();
+    _warmSentenceController.reset();
+    _warmIsDisplaying = false;
+    _warmIntervalRemainingMs = 0;
+    _warmIntervalStartedAt = null;
+    _usedWarmIndices.clear();
+    _currentWarmSentence = '';
+  }
+
   void _showStopConfirmDialog() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: TimerStopConfirmDialog(
-            onYes: _doStopTimer,
-            onNo: _resumeTimer,
-          ),
-        );
-      },
+    showTimerGlassDialog(
+      context,
+      child: TimerStopConfirmDialog(
+        onYes: _doStopTimer,
+        onNo: _resumeTimer,
+      ),
     );
   }
 
   void _showMaybeLaterDialog() {
     if (_isExiting) return;
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (BuildContext dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: TimerMaybeLaterDialog(
-            onGotIt: () async {
-              Navigator.of(dialogContext).pop();
-              await _exitToHome();
-            },
-          ),
-        );
-      },
+    showTimerGlassDialog(
+      context,
+      child: TimerMaybeLaterDialog(
+        onGotIt: () async {
+          Navigator.of(context).pop();
+          await _exitToHome();
+        },
+      ),
     );
   }
   void _toggleDisplayMode() {

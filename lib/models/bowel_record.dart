@@ -1,5 +1,6 @@
 /// 排便 session 记录模型（新版）
 /// 数据来自 timer 计时时长 + 问卷答案
+library;
 
 import 'package:uuid/uuid.dart';
 

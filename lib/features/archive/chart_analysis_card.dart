@@ -1688,39 +1688,6 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
     );
   }
 
-  int _maxOffsetForDays({
-    required List<BowelRecord> records,
-    required int days,
-  }) {
-    return maxChartOffsetDays(records: records, days: days);
-  }
-
-  _TrendSeriesData _computeTrendScoreSeries({
-    required List<BowelRecord> records,
-    required int days,
-    int offsetDays = 0,
-  }) {
-    final trend = computeTrendSeries(
-      records: records,
-      days: days,
-      offsetDays: offsetDays,
-    );
-    return _TrendSeriesData(
-      points: trend.points
-          .map(
-            (p) => _TrendPoint(
-              dayIndex: p.dayIndex,
-              label: p.label,
-              score: p.score,
-              breakdown: p.breakdown,
-            ),
-          )
-          .toList(),
-      labels: trend.labels,
-      totalDays: trend.totalDays,
-    );
-  }
-
   Widget _buildIssueBreakdownSection({required List<BowelRecord> records}) {
     final days = _chart1Past7Days ? 7 : 30;
     final window = _resolveWindow(
@@ -2666,7 +2633,7 @@ class _TrendsChartPainter extends CustomPainter {
       canvas.drawLine(Offset(chartLeft, y), Offset(chartRight, y), gridPaint);
       final tp = TextPainter(
         text: TextSpan(
-          text: '$tick%',
+          text: '$tick',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.75),
             fontSize: 9,
@@ -2830,7 +2797,7 @@ class _VerticalBarChartPainter extends CustomPainter {
       ..strokeWidth = 0.8;
     
     canvas.drawLine(
-      Offset(leftPadding, topPadding),
+      const Offset(leftPadding, topPadding),
       Offset(leftPadding, size.height - padding),
       axisPaint,
     );

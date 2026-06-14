@@ -19,22 +19,22 @@ class AppTheme {
       brightness: Brightness.dark,
       colorScheme: ColorScheme.dark(
         primary: waterBlue,
-        secondary: softWhite.withOpacity(0.6),
+        secondary: softWhite.withValues(alpha: 0.6),
         surface: starBlue,
         onPrimary: softWhite,
         onSecondary: deepBlue,
         onSurface: softWhite,
-        onSurfaceVariant: softWhite.withOpacity(0.8),
-        outline: softWhite.withOpacity(0.3),
+        onSurfaceVariant: softWhite.withValues(alpha: 0.8),
+        outline: softWhite.withValues(alpha: 0.3),
       ),
       scaffoldBackgroundColor: deepBlue,
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: softWhite,
         elevation: 0,
       ),
       cardTheme: CardThemeData(
-        color: starBlue.withOpacity(0.5),
+        color: starBlue.withValues(alpha: 0.5),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -48,7 +48,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: starBlue.withOpacity(0.5),
+        fillColor: starBlue.withValues(alpha: 0.5),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),

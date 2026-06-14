@@ -1,5 +1,6 @@
 /// 本地存储服务
 /// 使用 Hive 存储排便记录与私人空间
+library;
 
 import 'dart:convert';
 

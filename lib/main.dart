@@ -1,5 +1,6 @@
 /// Pupu - 心理+生理健康管理 App
 /// MVP: 排便记录、健康管理、私人空间
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,9 +9,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pupu/app.dart';
 import 'package:pupu/services/local_storage.dart' as local_storage;
 
-// TODO: 替换为你的 Supabase 项目 URL 和 anon key
+// TODO: 替换为你的 Supabase 项目 URL 和 publishable key
 const String _supabaseUrl = 'https://YOUR_PROJECT.supabase.co';
-const String _supabaseAnonKey = 'YOUR_ANON_KEY';
+const String _supabasePublishableKey = 'YOUR_PUBLISHABLE_KEY';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +29,7 @@ void main() async {
     if (!_supabaseUrl.contains('YOUR_PROJECT')) {
       await Supabase.initialize(
         url: _supabaseUrl,
-        anonKey: _supabaseAnonKey,
+        publishableKey: _supabasePublishableKey,
       );
     }
   } catch (_) {

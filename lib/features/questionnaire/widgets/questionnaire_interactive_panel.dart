@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:pupu/features/questionnaire/questionnaire_flow.dart';
 import 'package:pupu/features/questionnaire/questionnaire_layout_tokens.dart';
 import 'package:pupu/features/questionnaire/questionnaire_spec.dart';
+import 'package:pupu/features/timer/widgets/timer_dialogs.dart';
 
 class QuestionnaireInteractivePanel extends StatefulWidget {
   final QuestionnaireFlow flow;
@@ -23,9 +24,9 @@ class QuestionnaireInteractivePanel extends StatefulWidget {
       _QuestionnaireInteractivePanelState();
 }
 
-class _QuestionnaireInteractivePanelState
-    extends State<QuestionnaireInteractivePanel> {
+class _QuestionnaireInteractivePanelState extends State<QuestionnaireInteractivePanel> {
   late final ScrollController _scrollController;
+  bool _selectAlertVisible = false;
 
   @override
   void initState() {
@@ -37,6 +38,21 @@ class _QuestionnaireInteractivePanelState
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onMultiNext(QuestionId questionId) async {
+    if (widget.flow.shouldBlockMultiNext(questionId)) {
+      if (_selectAlertVisible) return;
+      _selectAlertVisible = true;
+      await showTimerGlassDialog(
+        context,
+        autoDismissSeconds: 2,
+        child: const TimerSelectOptionAlertDialog(),
+      );
+      if (mounted) _selectAlertVisible = false;
+      return;
+    }
+    widget.flow.advanceFromMultiQuestion(questionId);
   }
 
   void _handleScroll() {
@@ -139,147 +155,147 @@ class _QuestionnaireInteractivePanelState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (flow.isCollapsibleQuestion(questionId))
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: widget.layout.sy(8),
-                                ),
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () =>
-                                      flow.toggleQuestionCollapsed(questionId),
-                                  child: SizedBox(
-                                    width: double.infinity,
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: widget.layout.sy(6),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Flexible(
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  'Any other little details?',
-                                                  style: _sf(
-                                                    color: const Color(0xFF0088FF),
-                                                    fontSize: 18,
-                                                    weight: FontWeight.w600,
-                                                  ).copyWith(height: 1),
-                                                ),
-                                                SizedBox(
-                                                  width: widget.layout.sx(4),
-                                                ),
-                                                Text(
-                                                  isCollapsed ? '▼' : '▲',
-                                                  style: _sf(
-                                                    color: const Color(0xFF0088FF),
-                                                    fontSize: 18,
-                                                    weight: FontWeight.w600,
-                                                  ).copyWith(height: 1),
-                                                ),
-                                              ],
+                        if (flow.isCollapsibleQuestion(questionId))
+                          Padding(
+                            padding: EdgeInsets.only(
+                              bottom: widget.layout.sy(8),
+                            ),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () =>
+                                  flow.toggleQuestionCollapsed(questionId),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: widget.layout.sy(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Flexible(
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Any other little details?',
+                                              style: _sf(
+                                                color: const Color(0xFF0088FF),
+                                                fontSize: 18,
+                                                weight: FontWeight.w600,
+                                              ).copyWith(height: 1),
                                             ),
-                                          ),
-                                          _pillButton(
-                                            label: 'Skip',
-                                            onTap: () => flow.skipQuestion(questionId),
-                                          ),
-                                        ],
+                                            SizedBox(
+                                              width: widget.layout.sx(4),
+                                            ),
+                                            Text(
+                                              isCollapsed ? '▼' : '▲',
+                                              style: _sf(
+                                                color: const Color(0xFF0088FF),
+                                                fontSize: 18,
+                                                weight: FontWeight.w600,
+                                              ).copyWith(height: 1),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
+                                      _pillButton(
+                                        label: 'Skip',
+                                        onTap: () => flow.skipQuestion(questionId),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            if (!flow.isCollapsibleQuestion(questionId) || !isCollapsed)
-                              ...[
-                                Text(
-                                  'Q${index + 1} ${spec.title}',
+                            ),
+                          ),
+                        if (!flow.isCollapsibleQuestion(questionId) || !isCollapsed)
+                          ...[
+                            Text(
+                              'Q${index + 1} ${spec.title}',
+                              style: _sf(
+                                color: Colors.white,
+                                fontSize: 18,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: widget.layout.sy(6)),
+                          ],
+                        if (!isCollapsed)
+                          ...List.generate(spec.options.length, (optionIndex) {
+                            final option = spec.options[optionIndex];
+                            if (!option.selectable) {
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                    bottom: widget.layout.sy(4)),
+                                child: Text(
+                                  option.label,
                                   style: _sf(
                                     color: Colors.white,
                                     fontSize: 18,
                                     weight: FontWeight.w600,
                                   ),
                                 ),
-                                SizedBox(height: widget.layout.sy(6)),
-                              ],
-                            if (!isCollapsed)
-                              ...List.generate(spec.options.length, (optionIndex) {
-                                final option = spec.options[optionIndex];
-                                if (!option.selectable) {
-                                  return Padding(
-                                    padding: EdgeInsets.only(
-                                        bottom: widget.layout.sy(4)),
-                                    child: Text(
-                                      option.label,
-                                      style: _sf(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        weight: FontWeight.w600,
-                                      ),
+                              );
+                            }
+                            final logicalIndex = option.value;
+                            final isSelected =
+                                selectedOptions.contains(logicalIndex);
+                            return SizedBox(
+                              width: double.infinity,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () =>
+                                    flow.onOptionSelected(questionId, logicalIndex),
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: widget.layout.sy(4),
+                                  ),
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: isSelected
+                                        ? BoxDecoration(
+                                            color: const Color(0xFF0088FF).withValues(
+                                              alpha: isCompleted ? 0.4 : 1.0,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          )
+                                        : null,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: widget.layout.sx(8),
+                                      vertical: widget.layout.sy(2),
                                     ),
-                                  );
-                                }
-                                final logicalIndex = option.value;
-                                final isSelected =
-                                    selectedOptions.contains(logicalIndex);
-                                return SizedBox(
-                                  width: double.infinity,
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () =>
-                                        flow.onOptionSelected(questionId, logicalIndex),
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                        bottom: widget.layout.sy(4),
-                                      ),
-                                      child: Container(
-                                        width: double.infinity,
-                                        decoration: isSelected
-                                            ? BoxDecoration(
-                                                color: const Color(0xFF0088FF).withValues(
-                                                  alpha: isCompleted ? 0.4 : 1.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              )
-                                            : null,
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: widget.layout.sx(8),
-                                          vertical: widget.layout.sy(2),
-                                        ),
-                                        child: Text(
-                                          '• ${option.label}',
-                                          style: _sf(
-                                            color: isSelected
-                                                ? Colors.white
-                                                : Colors.white.withValues(alpha: 0.92),
-                                            fontSize: 18,
-                                            weight: isSelected
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
-                                          ),
-                                        ),
+                                    child: Text(
+                                      '• ${option.label}',
+                                      style: _sf(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.white.withValues(alpha: 0.92),
+                                        fontSize: 18,
+                                        weight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
                                       ),
                                     ),
                                   ),
-                                );
-                              }),
-                            if (!isCollapsed &&
-                                spec.isMultiSelect &&
-                                questionId != QuestionId.q102)
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  top: widget.layout.sy(8),
-                                ),
-                                child: _pillButton(
-                                  label: 'Next',
-                                  onTap: () => flow.advanceFromMultiQuestion(questionId),
                                 ),
                               ),
+                            );
+                          }),
+                        if (!isCollapsed &&
+                            spec.isMultiSelect &&
+                            questionId != QuestionId.q102)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: widget.layout.sy(8),
+                            ),
+                            child: _pillButton(
+                              label: 'Next',
+                              onTap: () => _onMultiNext(questionId),
+                            ),
+                          ),
                           ],
                         ),
                       ),

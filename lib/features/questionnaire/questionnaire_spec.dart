@@ -14,6 +14,35 @@ enum QuestionId {
   q102,
 }
 
+/// 必做题目（finish 校验）；q6 / q101 / q102 为选做。
+const Set<QuestionId> requiredQuestionIds = {
+  QuestionId.q1,
+  QuestionId.q2,
+  QuestionId.q3,
+  QuestionId.q4,
+  QuestionId.q51,
+  QuestionId.q52,
+  QuestionId.q7,
+  QuestionId.q81,
+  QuestionId.q82,
+  QuestionId.q9,
+};
+
+const Set<QuestionId> optionalQuestionIds = {
+  QuestionId.q6,
+  QuestionId.q101,
+  QuestionId.q102,
+};
+
+/// 必做多选题；空选 Next 时弹警示。
+const Set<QuestionId> requiredMultiSelectIds = {
+  QuestionId.q52,
+  QuestionId.q7,
+  QuestionId.q9,
+};
+
+bool isRequiredQuestion(QuestionId id) => requiredQuestionIds.contains(id);
+
 class QuestionnaireSpec {
   final String title;
   final bool isMultiSelect;

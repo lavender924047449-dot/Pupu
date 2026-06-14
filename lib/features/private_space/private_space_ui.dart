@@ -1,5 +1,11 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:pupu/core/app_typography.dart';
+import 'package:pupu/services/private_permission_helper.dart';
 
 /// Shared gesture timings for Private Space embeds (double-tap > long-press > drag).
 abstract final class PrivateSpaceGestures {
@@ -19,19 +25,14 @@ abstract final class PrivateSpaceColors {
 
 /// Typography shared by Save Changes / Rename voice dialogs.
 abstract final class PrivateSpaceDialogStyles {
-  static const TextStyle title = TextStyle(
-    fontFamily: 'SF Pro',
-    fontSize: 17,
-    fontWeight: FontWeight.w600,
-    height: 1.25,
-    color: PrivateSpaceColors.dialogTitle,
-  );
+  static TextStyle get title => AppTypography.dialogTitle(
+        color: PrivateSpaceColors.dialogTitle,
+      );
 
-  static const TextStyle action = TextStyle(
-    fontFamily: 'SF Pro',
-    fontSize: 17,
-    fontWeight: FontWeight.w400,
-  );
+  static TextStyle get action => AppTypography.body(
+        size: 17,
+        weight: FontWeight.w400,
+      );
 }
 
 /// One row in a unified bottom action sheet.
@@ -81,13 +82,13 @@ Future<T?> showPrivateActionSheet<T>({
               leading: Icon(action.icon, color: PrivateSpaceColors.accent),
               title: Text(
                 action.label,
-                style: const TextStyle(color: Colors.white),
+                style: AppTypography.body(color: Colors.white),
               ),
               subtitle: action.subtitle == null
                   ? null
                   : Text(
                       action.subtitle!,
-                      style: const TextStyle(color: Colors.white38),
+                      style: AppTypography.body(color: Colors.white38),
                     ),
               onTap: () => Navigator.pop(ctx, action.value),
             ),
@@ -104,8 +105,118 @@ PopupMenuItem<T> privatePopupMenuItem<T>({
 }) {
   return PopupMenuItem<T>(
     value: value,
-    child: Text(label, style: const TextStyle(color: Colors.white)),
+    child: Text(label, style: AppTypography.body(color: Colors.white)),
   );
+}
+
+/// F3 — permanently denied: iOS system Cupertino / Android Material + AppTypography.
+Future<void> showPrivatePermissionSettingsDialog(
+  BuildContext context,
+  PrivatePermissionKind kind,
+) async {
+  final label = PrivatePermissionHelper.labelFor(kind);
+  final title = '$label blocked';
+  final message = 'Please enable $label in system settings to continue.';
+
+  if (Platform.isIOS) {
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
+
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: PrivateSpaceColors.sheetBackground,
+      title: Text(
+        title,
+        style: AppTypography.dialogTitle(color: PrivateSpaceColors.dialogTitle),
+      ),
+      content: Text(
+        message,
+        style: AppTypography.body(color: Colors.white70, size: 15),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text('Cancel', style: AppTypography.body()),
+        ),
+        TextButton(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            await openAppSettings();
+          },
+          child: Text(
+            'Open Settings',
+            style: AppTypography.body(
+              color: PrivateSpaceColors.accent,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// F4 — retryable denial: module-scoped SnackBar (not a global snack helper).
+void showPrivatePermissionRetrySnack(
+  BuildContext context,
+  PrivatePermissionKind kind, {
+  required VoidCallback onRetry,
+}) {
+  final label = PrivatePermissionHelper.labelFor(kind);
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        '$label access is required for this action.',
+        style: AppTypography.body(),
+      ),
+      action: SnackBarAction(
+        label: 'Retry',
+        textColor: PrivateSpaceColors.accent,
+        onPressed: onRetry,
+      ),
+    ),
+  );
+}
+
+/// Maps [PrivatePermissionResult] to F3/F4 UI; returns true when granted.
+Future<bool> resolvePrivatePermissionResult({
+  required BuildContext context,
+  required PrivatePermissionResult result,
+  required PrivatePermissionKind kind,
+  required VoidCallback onRetry,
+}) async {
+  switch (result) {
+    case PrivatePermissionResult.granted:
+      return true;
+    case PrivatePermissionResult.deniedPermanently:
+      await showPrivatePermissionSettingsDialog(context, kind);
+      return false;
+    case PrivatePermissionResult.deniedRetryable:
+      showPrivatePermissionRetrySnack(context, kind, onRetry: onRetry);
+      return false;
+  }
 }
 
 /// iOS-style split-action alert shell (Save Changes / Rename voice).
@@ -230,10 +341,9 @@ Future<String?> showPrivateTextDialog({
       content: TextField(
         controller: controller,
         autofocus: true,
-        style: const TextStyle(
-          fontFamily: 'SF Pro',
+        style: AppTypography.body(
           color: Colors.white,
-          fontSize: 16,
+          size: 16,
         ),
         decoration: InputDecoration(
           hintText: hintText,

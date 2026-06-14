@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:pupu/features/questionnaire/questionnaire_spec.dart';
+import 'package:pupu/features/questionnaire/questionnaire_validation.dart';
 
 class QuestionnaireFlow extends ChangeNotifier {
   final List<QuestionId> _visibleQuestions = [QuestionId.q1];
@@ -21,6 +22,14 @@ class QuestionnaireFlow extends ChangeNotifier {
   Set<QuestionId> get fadingInQuestions => Set.unmodifiable(_fadingInQuestions);
 
   bool isCollapsed(QuestionId questionId) => _collapsedQuestions.contains(questionId);
+
+  /// 必做多选空选时是否应阻止 Next（由 UI 弹警示）。
+  bool shouldBlockMultiNext(QuestionId questionId) {
+    return QuestionnaireValidation.shouldBlockRequiredMultiNext(
+      questionId,
+      _selectedAnswers,
+    );
+  }
 
   void reset() {
     _visibleQuestions
@@ -55,6 +64,9 @@ class QuestionnaireFlow extends ChangeNotifier {
 
   bool shouldShowFinishButton() {
     if (_visibleQuestions.isEmpty) return false;
+    if (QuestionnaireValidation.unfinishedRequired(_selectedAnswers).isNotEmpty) {
+      return false;
+    }
     final lastQuestion = _visibleQuestions.last;
     final selected = _selectedAnswers[lastQuestion];
     final selectedOption = (selected == null || selected.isEmpty) ? 1 : selected.first;
@@ -170,7 +182,10 @@ class QuestionnaireFlow extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 多选题点 Next 推进；必做多选空选时由 UI 拦截，此处作二次 guard。
   void advanceFromMultiQuestion(QuestionId questionId) {
+    if (shouldBlockMultiNext(questionId)) return;
+
     final index = _visibleQuestions.indexOf(questionId);
     if (index == -1) return;
     final selected = _selectedAnswers[questionId];

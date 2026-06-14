@@ -67,7 +67,7 @@ class _PrivateSpaceParticleOverlayState extends State<PrivateSpaceParticleOverla
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _ParticlePainter(
               particles: _particles,

@@ -1,5 +1,6 @@
 /// Supabase 云端备份服务
 /// 认证 + 本地↔云端同步
+library;
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pupu/services/local_storage.dart' as local_storage;

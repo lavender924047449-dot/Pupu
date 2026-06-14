@@ -1,5 +1,6 @@
 /// Pupu App - 核心常量
 /// 颜色预设、布里斯托分类、疼痛等级、宇宙主题、动效等
+library;
 
 // ---- 宇宙主题色板（夜间） ----
 const int colorDeepBlue = 0xFF0B1026;    // 深蓝

@@ -5,15 +5,15 @@ import 'package:pupu/models/private_note_document.dart';
 
 void main() {
   test('document ops round-trip json', () {
-    final doc = PrivateNoteDocument(
+    const doc = PrivateNoteDocument(
       ops: [
-        const PrivateDocTextOp('hello'),
+        PrivateDocTextOp('hello'),
         PrivateDocImageOp(
           PrivateImageData(id: '1', path: '/tmp/a.jpg'),
         ),
-        const PrivateDocTextOp(' world'),
+        PrivateDocTextOp(' world'),
       ],
-      lastCursorAnchor: const PrivateDocAnchor(opIndex: 1, textOffset: 3),
+      lastCursorAnchor: PrivateDocAnchor(opIndex: 1, textOffset: 3),
     );
     final json = doc.toJson();
     final restored = PrivateNoteDocument.fromJson(json);
@@ -39,17 +39,17 @@ void main() {
 
   test('moveOp reorders embed without RangeError', () {
     final controller = PrivateNoteDocumentController(
-      initial: PrivateNoteDocument(
+      initial: const PrivateNoteDocument(
         ops: [
-          const PrivateDocTextOp('hello'),
+          PrivateDocTextOp('hello'),
           PrivateDocImageOp(
             PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
           ),
-          const PrivateDocTextOp(' world'),
+          PrivateDocTextOp(' world'),
           PrivateDocVoiceOp(
             PrivateVoiceData(id: 'voice-1', path: '/tmp/v.m4a', durationMs: 1200),
           ),
-          const PrivateDocTextOp('!'),
+          PrivateDocTextOp('!'),
         ],
       ),
     );

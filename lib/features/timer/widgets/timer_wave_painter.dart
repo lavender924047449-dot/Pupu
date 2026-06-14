@@ -23,7 +23,7 @@ class TimerWavePainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     final centerY = size.height / 2;
-    final amplitude = 5.0;
+    const amplitude = 5.0;
     final wavelength = size.width / 2.5;
 
     if (!isAnimating) {
@@ -36,7 +36,7 @@ class TimerWavePainter extends CustomPainter {
     }
 
     final path = Path();
-    final step = 2.0;
+    const step = 2.0;
     final frequency = 2 * math.pi / wavelength;
 
     for (double x = 0; x <= size.width; x += step) {

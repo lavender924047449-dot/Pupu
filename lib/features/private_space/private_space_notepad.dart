@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pupu/core/app_typography.dart';
 import 'package:pupu/features/private_space/private_note_editor.dart';
 import 'package:pupu/features/private_space/private_note_document_controller.dart';
 import 'package:pupu/models/private_entry.dart';
@@ -109,12 +110,12 @@ class PrivateSpaceNotepadStage extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Positioned.fill(
+                        const Positioned.fill(
                           child: IgnorePointer(
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: RadialGradient(
-                                  center: const Alignment(0.0, 0.08),
+                                  center: Alignment(0.0, 0.08),
                                   radius: 1.0,
                                   colors: [
                                     Color(0x2238648A),
@@ -149,19 +150,17 @@ class PrivateSpaceNotepadStage extends StatelessWidget {
                                   children: [
                                     Text(
                                       DateFormat('yyyy / MM / dd').format(now),
-                                      style: const TextStyle(
-                                        color: Color(0x9FD6D9DE),
-                                        fontSize: 13,
+                                      style: AppTypography.body(
+                                        color: const Color(0x9FD6D9DE),
+                                        size: 13,
                                         letterSpacing: 0.6,
-                                        fontFamily: 'Segoe UI',
                                       ),
                                     ),
                                     Text(
                                       DateFormat('HH:mm').format(now),
-                                      style: const TextStyle(
-                                        color: Color(0x9FD6D9DE),
-                                        fontSize: 13,
-                                        fontFamily: 'Segoe UI',
+                                      style: AppTypography.body(
+                                        color: const Color(0x9FD6D9DE),
+                                        size: 13,
                                       ),
                                     ),
                                   ],
