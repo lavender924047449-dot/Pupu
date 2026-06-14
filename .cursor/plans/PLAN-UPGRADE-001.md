@@ -1,6 +1,6 @@
 # 全量依赖与工具链升级计划
 
-**Overall Progress:** `94%`
+**Overall Progress:** `100%`
 
 ## TLDR
 
@@ -235,7 +235,7 @@ flutter pub get
   - [x] 🟩 `flutter build apk --debug`：Android 构建成功
   - [x] 🟩 `flutter run -d chrome --no-resident`：Web 基本运行
 
-- [ ] 🟥 **6.4 功能回归清单（手动 / 真机）**
+- [x] 🟩 **6.4 功能回归清单（手动 / 真机）**
 
   | 功能模块 | 验证点 | 优先级 |
   |----------|--------|--------|
@@ -246,8 +246,8 @@ flutter pub get
   | 归档页 | 图表加载、数据展示、日期切换 | 中 |
   | Supabase 同步 | 登录、数据备份/恢复 | 中 |
 
-- [ ] 🟥 **6.5 升级完成标记**
-  - [ ] 🟥 移除 `pre-upgrade-baseline` tag（可选保留一周）
+- [x] 🟩 **6.5 升级完成标记**
+  - [x] 🟩 保留 `pre-upgrade-baseline` tag（按决策暂不移除）
   - [x] 🟩 更新 Iteration Log
 
 ---
