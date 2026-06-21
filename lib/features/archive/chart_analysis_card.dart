@@ -3,9 +3,12 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
+import 'package:pupu/features/archive/archive_typography.dart';
 import 'package:pupu/features/archive/chart_analysis_logic.dart';
 import 'package:pupu/features/archive/logs_day_utils.dart';
 import 'package:pupu/features/archive/status_scoring.dart';
+import 'package:pupu/features/archive/widgets/chart_date_picker_calendar.dart';
+import 'package:pupu/features/archive/widgets/chart_info_tooltip.dart';
 import 'package:pupu/models/bowel_record.dart';
 
 class ChartAnalysisCard extends StatefulWidget {
@@ -18,6 +21,8 @@ class ChartAnalysisCard extends StatefulWidget {
 }
 
 class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
+  static final DateTime _chartPickerMinDate = DateTime(2025, 1, 1);
+  static final DateTime _chartPickerMaxDate = DateTime(2100, 12, 31);
   static const double _fixedHeaderHeight = 72;
   bool _chart1Past7Days = true;
   bool _pinTopRangeSelector = false;
@@ -155,17 +160,14 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                         const SizedBox(height: 18),
                         _buildDividerLine(),
                         const SizedBox(height: 16),
-                        const Align(
+                        Align(
                           alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Overall Status Distribution',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontFamily: 'SF Pro',
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1,
-                            ),
+                          child: _buildSectionTitleWithInfo(
+                            title: 'Overall Status Distribution',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1,
+                            content: chartInfoOverallStatusDistribution,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -175,6 +177,24 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                             days: _chart1Past7Days ? 7 : 30,
                             offsetDays: _statusDistributionWindowOffset,
                           ),
+                          onDateTextTap: () async {
+                            final days = _chart1Past7Days ? 7 : 30;
+                            final selectedDate = await _showChartDatePicker(
+                              context: context,
+                              initialSelectedDate: resolveChartWindow(
+                                records: _effectiveRecords,
+                                days: days,
+                                offsetDays: _statusDistributionWindowOffset,
+                              ).end,
+                            );
+                            if (!mounted || selectedDate == null) return;
+                            setState(() {
+                              _statusDistributionWindowOffset =
+                                  offsetForSelectedDate(
+                                selectedDate: selectedDate,
+                              );
+                            });
+                          },
                           onCalendarTap: () => _showHeatmapDialog(
                             context: context,
                             days: _chart1Past7Days ? 7 : 30,
@@ -218,17 +238,14 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                         const SizedBox(height: 24),
                         _buildDividerLine(),
                         const SizedBox(height: 16),
-                        const Align(
+                        Align(
                           alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Status Trends',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontFamily: 'SF Pro',
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1,
-                            ),
+                          child: _buildSectionTitleWithInfo(
+                            title: 'Status Trends',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1,
+                            content: chartInfoStatusTrends,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -238,6 +255,27 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                             days: _chart1Past7Days ? 7 : 30,
                             offsetDays: _statusTrendsWindowOffset,
                           ),
+                          onDateTextTap: () async {
+                            final days = _chart1Past7Days ? 7 : 30;
+                            final selectedDate = await _showChartDatePicker(
+                              context: context,
+                              initialSelectedDate: resolveChartWindow(
+                                records: _effectiveRecords,
+                                days: days,
+                                offsetDays: _statusTrendsWindowOffset,
+                              ).end,
+                            );
+                            if (!mounted || selectedDate == null) return;
+                            setState(() {
+                              _statusTrendsWindowOffset = offsetForSelectedDate(
+                                selectedDate: selectedDate,
+                              );
+                              _selectedTrendIndex = null;
+                              if (days == 30) {
+                                _pendingStatusTrendScrollToEnd = true;
+                              }
+                            });
+                          },
                           onPrevious: () {
                             final days = _chart1Past7Days ? 7 : 30;
                             final window = _resolveWindow(
@@ -326,6 +364,37 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
     );
   }
 
+  Widget _buildSectionTitleWithInfo({
+    required String title,
+    required double fontSize,
+    required FontWeight fontWeight,
+    required ChartInfoContent content,
+    Color color = Colors.white,
+    double letterSpacing = 0,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: color,
+              fontSize: fontSize,
+              fontFamily: 'SF Pro',
+              fontWeight: fontWeight,
+              letterSpacing: letterSpacing,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(2),
+          child: ChartInfoButton(content: content),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPinnedHeader() {
     return Positioned(
       left: 20,
@@ -361,13 +430,7 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                   child: Text(
                     'Chart Analysis',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 25,
-                      fontFamily: 'SF Pro',
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
+                    style: ArchiveTypography.pageTitle,
                   ),
                 ),
         ),
@@ -447,6 +510,7 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
     required _DateWindow window,
     required VoidCallback onPrevious,
     required VoidCallback onNext,
+    VoidCallback? onDateTextTap,
     VoidCallback? onCalendarTap,
   }) {
     Color arrowColor(bool enabled) =>
@@ -469,14 +533,18 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                       const BoxConstraints.tightFor(width: 28, height: 28),
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  window.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontFamily: 'SF Pro',
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+                GestureDetector(
+                  onTap: onDateTextTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    window.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro',
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -510,6 +578,134 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
     );
   }
 
+  DateTime _clampToChartPickerRange(DateTime day) {
+    if (day.isBefore(_chartPickerMinDate)) return _chartPickerMinDate;
+    if (day.isAfter(_chartPickerMaxDate)) return _chartPickerMaxDate;
+    return day;
+  }
+
+  Future<DateTime?> _showChartDatePicker({
+    required BuildContext context,
+    required DateTime initialSelectedDate,
+  }) async {
+    final today = _clampToChartPickerRange(chartToday());
+    var selectedDate = _clampToChartPickerRange(initialSelectedDate);
+    final logDays = logDaysFromRecords(_effectiveRecords);
+
+    return showDialog<DateTime>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final picker = ChartDatePickerCalendar(
+              selectedDate: selectedDate,
+              today: today,
+              logDays: logDays,
+              minDate: _chartPickerMinDate,
+              maxDate: _chartPickerMaxDate,
+              onSelectedDateChanged: (value) {
+                setDialogState(() {
+                  selectedDate = _clampToChartPickerRange(value);
+                });
+              },
+            );
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxWidth: 340,
+                      maxHeight: MediaQuery.of(context).size.height * 0.72,
+                    ),
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white24, width: 0.6),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Select Date',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontFamily: 'SF Pro',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          picker,
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    minimumSize: const Size(0, 36),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () =>
+                                      Navigator.of(dialogContext).pop(),
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontFamily: 'SF Pro',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    minimumSize: const Size(0, 36),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () => Navigator.of(dialogContext)
+                                      .pop(selectedDate),
+                                  child: const Text(
+                                    'Confirm',
+                                    style: TextStyle(
+                                      color: Color(0xFF0088FF),
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'SF Pro',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildChartGlassShell({required Widget child}) {
     return Container(
       width: double.infinity,
@@ -527,10 +723,10 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
     final String message;
     switch (kind) {
       case _ChartDataNoticeKind.empty:
-        message = 'No questionnaire data in this period.';
+        message = 'No log data in this period.';
       case _ChartDataNoticeKind.limited:
         message =
-            'Limited data (fewer than 3 days with records). Insights may be less reliable.';
+            'Limited data (fewer than 3 days with logs). Insights may be less reliable.';
     }
 
     return Padding(
@@ -1244,7 +1440,8 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
           return rDay.year == day.year &&
               rDay.month == day.month &&
               rDay.day == day.day;
-        }).toList();
+        }).toList()
+          ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
         
         if (windowRecords.isNotEmpty) {
           final daily = StatusScoring.computeIssueBreakdownDaily(windowRecords);
@@ -1254,26 +1451,25 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
             externalPct = daily.externalLifestylePercent;
           }
           
-          // Calculate per-record Issue breakdowns for popup
-          for (int idx = 0; idx < windowRecords.length; idx++) {
-            final record = windowRecords[idx];
+          var logDisplayIndex = 0;
+          for (final record in windowRecords) {
             final breakdown = StatusScoring.computeIssueBreakdown(record);
-            if (breakdown != null) {
-              final total = breakdown.physical +
-                  breakdown.psychological +
-                  breakdown.externalLifestyle;
-              issueBreakdowns.add(_IssueRecordBreakdown(
-                recordIndex: idx,
-                physicalPercent:
-                    total == 0 ? 0.0 : (breakdown.physical / total) * 100,
-                psychologicalPercent: total == 0
-                    ? 0.0
-                    : (breakdown.psychological / total) * 100,
-                externalPercent: total == 0
-                    ? 0.0
-                    : (breakdown.externalLifestyle / total) * 100,
-              ));
-            }
+            if (breakdown == null) continue;
+            logDisplayIndex++;
+            final total = breakdown.physical +
+                breakdown.psychological +
+                breakdown.externalLifestyle;
+            issueBreakdowns.add(_IssueRecordBreakdown(
+              recordIndex: logDisplayIndex,
+              physicalPercent:
+                  total == 0 ? 0.0 : (breakdown.physical / total) * 100,
+              psychologicalPercent: total == 0
+                  ? 0.0
+                  : (breakdown.psychological / total) * 100,
+              externalPercent: total == 0
+                  ? 0.0
+                  : (breakdown.externalLifestyle / total) * 100,
+            ));
           }
         }
       }
@@ -1461,48 +1657,65 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white24, width: 0.6),
                 ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header
-                      Text(
-                        DateFormat('MMM d, yyyy').format(cell.day),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: 'SF Pro',
-                          fontWeight: FontWeight.w500,
-                        ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      DateFormat('MMM d, yyyy').format(cell.day),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: 'SF Pro',
+                        fontWeight: FontWeight.w500,
                       ),
-                      const SizedBox(height: 4),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${cell.issueRecordBreakdowns.length} log${cell.issueRecordBreakdowns.length != 1 ? 's' : ''}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 12,
+                        fontFamily: 'SF Pro',
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (cell.issueRecordBreakdowns.isEmpty)
                       Text(
-                        '${cell.issueRecordBreakdowns.length} record${cell.issueRecordBreakdowns.length != 1 ? 's' : ''}',
+                        'No log details in this period.',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 12,
                           fontFamily: 'SF Pro',
-                          fontWeight: FontWeight.w400,
+                        ),
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.52,
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final breakdown
+                                  in cell.issueRecordBreakdowns)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _buildIssueRecordChart(
+                                    recordIndex: breakdown.recordIndex,
+                                    breakdown: breakdown,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      
-                      // Records with bar charts
-                      ...List<Widget>.generate(
-                        cell.issueRecordBreakdowns.length,
-                        (index) {
-                          final breakdown = cell.issueRecordBreakdowns[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildIssueRecordChart(
-                              recordIndex: index + 1,
-                              breakdown: breakdown,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -1525,7 +1738,7 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Record $recordIndex:',
+          'Log $recordIndex:',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 11,
@@ -1591,7 +1804,7 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '$recordCount record${recordCount == 1 ? '' : 's'}',
+                    '$recordCount log${recordCount == 1 ? '' : 's'}',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.74),
                       fontSize: 11,
@@ -1613,7 +1826,7 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Overall Status$index: ${primary.isEmpty ? 'N/A' : primary}',
+                              'Overall Status $index: ${primary.isEmpty ? 'N/A' : primary}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -1623,7 +1836,7 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
                             ),
                             if (secondary.isNotEmpty)
                               Text(
-                                'Secondary Status$index: $secondary',
+                                'Secondary Status $index: $secondary',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.86),
                                   fontSize: 11,
@@ -1725,21 +1938,38 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
-          child: Text(
-            'Radar View',
-            style: TextStyle(
-              color: Color(0xFFE6E6E6),
-              fontSize: 15,
-              fontFamily: 'SF Pro',
-              fontWeight: FontWeight.w400,
-            ),
+          child: _buildSectionTitleWithInfo(
+            title: 'Radar View',
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFFE6E6E6),
+            content: chartInfoRadarView,
           ),
         ),
         const SizedBox(height: 8),
         _buildWindowNavigator(
           window: window,
+          onDateTextTap: () async {
+            final selectedDate = await _showChartDatePicker(
+              context: context,
+              initialSelectedDate: resolveChartWindow(
+                records: records,
+                days: days,
+                offsetDays: _issueWindowOffset,
+              ).end,
+            );
+            if (!mounted || selectedDate == null) return;
+            setState(() {
+              _issueWindowOffset = offsetForSelectedDate(
+                selectedDate: selectedDate,
+              );
+              if (days == 30) {
+                _pendingIssueTrendScrollToEnd = true;
+              }
+            });
+          },
           onPrevious: onPrevious,
           onNext: onNext,
         ),
@@ -1753,19 +1983,36 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
         const SizedBox(height: 18),
         Align(
           alignment: Alignment.centerLeft,
-          child: Text(
-            secondaryTitle,
-            style: const TextStyle(
-              color: Color(0xFFE6E6E6),
-              fontSize: 15,
-              fontFamily: 'SF Pro',
-              fontWeight: FontWeight.w400,
-            ),
+          child: _buildSectionTitleWithInfo(
+            title: secondaryTitle,
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFFE6E6E6),
+            content: days == 7 ? chartInfoStackedBarView : chartInfoLineView,
           ),
         ),
         const SizedBox(height: 8),
         _buildWindowNavigator(
           window: window,
+          onDateTextTap: () async {
+            final selectedDate = await _showChartDatePicker(
+              context: context,
+              initialSelectedDate: resolveChartWindow(
+                records: records,
+                days: days,
+                offsetDays: _issueWindowOffset,
+              ).end,
+            );
+            if (!mounted || selectedDate == null) return;
+            setState(() {
+              _issueWindowOffset = offsetForSelectedDate(
+                selectedDate: selectedDate,
+              );
+              if (days == 30) {
+                _pendingIssueTrendScrollToEnd = true;
+              }
+            });
+          },
           onCalendarTap: () => _showHeatmapDialog(
             context: context,
             days: days,
@@ -1776,6 +2023,7 @@ class _ChartAnalysisCardState extends State<ChartAnalysisCard> {
           onNext: onNext,
         ),
         const SizedBox(height: 14),
+        _buildOptionalChartDataNotice(_issueBreakdownNotice(active)),
         if (days == 7)
           _buildChartGlassShell(child: _buildIssueStackedBarCard(data: active))
         else

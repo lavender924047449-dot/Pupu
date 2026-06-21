@@ -27,6 +27,11 @@ void main() {
     expect(values.fold<int>(0, (sum, value) => sum + value), 100);
   });
 
+  test('formatDistributionPercents returns zeros when all ratios are zero', () {
+    final values = formatDistributionPercents(const [0.0, 0.0, 0.0, 0.0, 0.0]);
+    expect(values, [0, 0, 0, 0, 0]);
+  });
+
   test('resolveChartWindow anchors to today and clamps offset', () {
     final now = DateTime(2026, 6, 12, 10, 0);
     final records = [
@@ -38,8 +43,123 @@ void main() {
       offsetDays: 999,
       now: now,
     );
-    expect(window.end, DateTime(2026, 5, 15));
-    expect(window.start, DateTime(2026, 5, 9));
+    // Picker range starts 2025-01-01; offset 999 clamps to aligned max block.
+    expect(window.offsetDays, greaterThan(0));
+    expect(window.end.isBefore(now), isTrue);
+    expect(window.canGoNewer, isTrue);
+  });
+
+  test('maxChartOffsetDays spans picker min date to today', () {
+    final now = DateTime(2026, 6, 12, 10, 0);
+    final maxOffset = maxChartOffsetDays(days: 7, now: now);
+    expect(maxOffset % 7, 0);
+    expect(maxOffset, greaterThan(0));
+  });
+
+  test('offsetForSelectedDate sets window end to selected day', () {
+    final now = DateTime(2026, 6, 12, 10, 0);
+    expect(
+      offsetForSelectedDate(
+        selectedDate: DateTime(2026, 6, 12),
+        now: now,
+      ),
+      0,
+    );
+    expect(
+      offsetForSelectedDate(
+        selectedDate: DateTime(2026, 6, 5),
+        now: now,
+      ),
+      7,
+    );
+    expect(
+      offsetForSelectedDate(
+        selectedDate: DateTime(2026, 6, 4),
+        now: now,
+      ),
+      8,
+    );
+    expect(
+      offsetForSelectedDate(
+        selectedDate: DateTime(2026, 6, 13),
+        now: now,
+      ),
+      0,
+    );
+    expect(
+      offsetForSelectedDate(
+        selectedDate: DateTime(2026, 5, 12),
+        now: now,
+      ),
+      31,
+    );
+  });
+
+  test('logDaysFromRecords normalizes and deduplicates days', () {
+    final records = [
+      _record(id: 'a', dateTime: DateTime(2026, 6, 10, 8)),
+      _record(id: 'b', dateTime: DateTime(2026, 6, 10, 20)),
+      _record(id: 'c', dateTime: DateTime(2026, 6, 11)),
+    ];
+    final days = logDaysFromRecords(records);
+    expect(days.length, 2);
+    expect(days.contains(DateTime(2026, 6, 10)), isTrue);
+    expect(days.contains(DateTime(2026, 6, 11)), isTrue);
+  });
+
+  test('resolveChartPickerDayStyle applies log, today, and selection rules', () {
+    final today = DateTime(2026, 6, 12);
+    final logDays = {DateTime(2026, 6, 10), DateTime(2026, 6, 12)};
+
+    final plain = resolveChartPickerDayStyle(
+      day: DateTime(2026, 6, 1),
+      today: today,
+      selected: today,
+      logDays: logDays,
+    );
+    expect(plain.showLogBackground, isFalse);
+    expect(plain.useTodayTextColor, isFalse);
+    expect(plain.showSelectionRing, isFalse);
+
+    final logDay = resolveChartPickerDayStyle(
+      day: DateTime(2026, 6, 10),
+      today: today,
+      selected: today,
+      logDays: logDays,
+    );
+    expect(logDay.showLogBackground, isTrue);
+    expect(logDay.useTodayTextColor, isFalse);
+    expect(logDay.showSelectionRing, isFalse);
+
+    final todayStyle = resolveChartPickerDayStyle(
+      day: today,
+      today: today,
+      selected: DateTime(2026, 6, 5),
+      logDays: logDays,
+    );
+    expect(todayStyle.showLogBackground, isFalse);
+    expect(todayStyle.useTodayTextColor, isTrue);
+    expect(todayStyle.showSelectionRing, isFalse);
+
+    final selectedLogDay = resolveChartPickerDayStyle(
+      day: DateTime(2026, 6, 10),
+      today: today,
+      selected: DateTime(2026, 6, 10),
+      logDays: logDays,
+    );
+    expect(selectedLogDay.showLogBackground, isTrue);
+    expect(selectedLogDay.useTodayTextColor, isFalse);
+    expect(selectedLogDay.showSelectionRing, isTrue);
+
+    final todaySelected = resolveChartPickerDayStyle(
+      day: today,
+      today: today,
+      selected: today,
+      logDays: logDays,
+    );
+    expect(todaySelected.showLogBackground, isFalse);
+    expect(todaySelected.useTodayTextColor, isTrue);
+    expect(todaySelected.showSelectionRing, isTrue);
   });
 
   test('computeStatusDistributionSession counts by single resolved label', () {

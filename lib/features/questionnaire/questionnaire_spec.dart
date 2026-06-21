@@ -119,7 +119,7 @@ QuestionnaireSpec questionSpec(QuestionId questionId) {
           QuestionnaireOption(label: 'No effort at all / very easy', value: 1),
           QuestionnaireOption(label: 'A little effort', value: 2),
           QuestionnaireOption(label: 'Quite a bit of effort', value: 3),
-          QuestionnaireOption(label: 'Lot of effort / Straining for a long time', value: 4),
+          QuestionnaireOption(label: 'A lot of effort / Straining for a long time', value: 4),
         ],
       );
     case QuestionId.q3:
@@ -134,7 +134,7 @@ QuestionnaireSpec questionSpec(QuestionId questionId) {
       );
     case QuestionId.q4:
       return const QuestionnaireSpec(
-        title: 'What was the Consistency?',
+        title: 'What was the consistency?',
         isMultiSelect: false,
         options: [
           QuestionnaireOption(label: 'Well-formed, soft, and easy to pass', value: 1),
@@ -173,7 +173,7 @@ QuestionnaireSpec questionSpec(QuestionId questionId) {
           QuestionnaireOption(label: 'Noticeable undigested food', value: 6),
           QuestionnaireOption(label: 'Oily characteristics:', selectable: false),
           QuestionnaireOption(label: 'Looks oily or shiny', value: 7),
-          QuestionnaireOption(label: 'Floating on the water', value: 8),
+          QuestionnaireOption(label: 'Floating in the water', value: 8),
           QuestionnaireOption(label: 'Oily film left on the toilet bowl', value: 9),
         ],
       );
@@ -207,7 +207,7 @@ QuestionnaireSpec questionSpec(QuestionId questionId) {
           QuestionnaireOption(label: 'Strong feelings of tension or anxiety', value: 6),
           QuestionnaireOption(label: 'A "blocked" or "stuck" sensation', value: 7),
           QuestionnaireOption(label: 'Needed to change position', value: 8),
-          QuestionnaireOption(label: 'Needed to strain or stay here for a long time', value: 9),
+          QuestionnaireOption(label: 'Needed to strain or stay for a long time', value: 9),
           QuestionnaireOption(label: 'Needed to press on the abdomen or use other assistance', value: 10),
           QuestionnaireOption(label: 'Interrupted by external factors', value: 11),
         ],
@@ -254,7 +254,7 @@ QuestionnaireSpec questionSpec(QuestionId questionId) {
           QuestionnaireOption(label: 'Strong feelings of tension or anxiety', value: 6),
           QuestionnaireOption(label: 'A "blocked" or "stuck" sensation', value: 7),
           QuestionnaireOption(label: 'Needed to change position', value: 8),
-          QuestionnaireOption(label: 'Needed to strain or sit for a long time', value: 9),
+          QuestionnaireOption(label: 'Needed to strain or stay for a long time', value: 9),
           QuestionnaireOption(label: 'Needed to press on the abdomen or use other assistance', value: 10),
           QuestionnaireOption(label: 'Interrupted by external factors', value: 11),
         ],

@@ -1,37 +1,27 @@
 # PS-011 Permission Dialog Layering
 
+**Status:** ✅ Resolved (PLAN-DIALOG-001, 2026-06-12)
+
 ## Background
 
-`private_permission_helper.dart` currently lives in `services/` but directly renders UI (`SnackBar` and `AlertDialog`) via `BuildContext`.
+`private_permission_helper.dart` previously lived in `services/` but directly rendered UI (`SnackBar` and `AlertDialog`) via `BuildContext`.
 
-This violates the layering target in `PLAN-ARCH-001`:
+This violated the layering target in `PLAN-ARCH-001`:
 
 - service/data layer should return state/intent only
 - feature UI layer should decide how to render dialog/snackbar
 
-## Current State
+## Resolution
 
-- File: `lib/services/private_permission_helper.dart`
-- Behavior:
-  - requests permission with `permission_handler`
-  - on denied/permanently denied, directly shows snack/dialog
+1. `PrivatePermissionHelper.ensure()` returns `PrivatePermissionResult` enum — no UI, no `BuildContext`.
+2. UI feedback in `private_space_ui.dart`:
+   - `showPrivatePermissionSettingsDialog` — iOS Cupertino (system default) / Android Material + `AppTypography`
+   - `showPrivatePermissionRetrySnack` — module-scoped SnackBar + Retry
+   - `resolvePrivatePermissionResult` — maps enum → F3/F4
+3. Callers: `private_space_screen.dart`, `private_voice_sheet.dart`
+4. Tests: `test/private_permission_helper_test.dart`
 
-## Risk
+## References
 
-- service layer becomes coupled to widget tree and UI style
-- hard to unit test permission flow without widget context
-- future platform-specific permission UX is harder to customize
-
-## Proposed Direction (out of ARCH mainline)
-
-1. Keep permission querying/request in service helper.
-2. Replace direct dialog/snackbar calls with semantic result enum, e.g.:
-   - granted
-   - deniedRetryable
-   - deniedPermanently
-3. Let `private_space_screen.dart` (or feature widget) map enum to UI feedback.
-
-## Scope
-
-- Separate issue by decision R8.
-- Not included in ARCH P0/P1/P2 execution path.
+- [PLAN-DIALOG-001.md](../plans/PLAN-DIALOG-001.md)
+- [DIALOG-LAYER-FAMILIES.md](../docs/DIALOG-LAYER-FAMILIES.md) — F3, F4

@@ -33,6 +33,61 @@ void main() {
       controller.disposeController();
     });
 
+    test('insertImagesAtCaret preserves selection order in middle of text', () {
+      final controller = PrivateNoteDocumentController(
+        initial: const PrivateNoteDocument(
+          ops: [PrivateDocTextOp('hello world')],
+        ),
+      );
+      controller.textControllers[0].selection =
+          const TextSelection.collapsed(offset: 5);
+      controller.onTextSelectionChanged(0);
+
+      controller.insertImagesAtCaret([
+        const PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
+        const PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
+        const PrivateImageData(id: 'img-3', path: '/tmp/c.jpg'),
+      ]);
+
+      final ops = controller.buildDocument().ops;
+      expect(ops.length, 5);
+      expect((ops[0] as PrivateDocTextOp).text, 'hello');
+      expect((ops[1] as PrivateDocImageOp).image.id, 'img-1');
+      expect((ops[2] as PrivateDocImageOp).image.id, 'img-2');
+      expect((ops[3] as PrivateDocImageOp).image.id, 'img-3');
+      expect((ops[4] as PrivateDocTextOp).text, ' world');
+
+      controller.disposeController();
+    });
+
+    test('insertImagesAtCaret batch undo removes all images at once', () {
+      final controller = PrivateNoteDocumentController(
+        initial: const PrivateNoteDocument(
+          ops: [PrivateDocTextOp('hello world')],
+        ),
+      );
+      controller.textControllers[0].selection =
+          const TextSelection.collapsed(offset: 5);
+      controller.onTextSelectionChanged(0);
+
+      controller.insertImagesAtCaret([
+        const PrivateImageData(id: 'img-1', path: '/tmp/a.jpg'),
+        const PrivateImageData(id: 'img-2', path: '/tmp/b.jpg'),
+        const PrivateImageData(id: 'img-3', path: '/tmp/c.jpg'),
+      ]);
+      expect(controller.buildDocument().imageCount, 3);
+      expect(controller.canUndo, isTrue);
+
+      controller.undo();
+      expect(controller.buildDocument().imageCount, 0);
+      expect(
+        (controller.buildDocument().ops.single as PrivateDocTextOp).text,
+        'hello world',
+      );
+
+      controller.disposeController();
+    });
+
     test('text between images is kept when it has content', () {
       final controller = PrivateNoteDocumentController(
         initial: const PrivateNoteDocument(

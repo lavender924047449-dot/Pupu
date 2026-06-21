@@ -9,11 +9,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pupu/core/app_typography.dart';
+import 'package:pupu/features/archive/archive_typography.dart';
 import 'package:pupu/features/archive/day_records_sheet.dart';
 import 'package:pupu/features/archive/logs_card.dart';
 import 'package:pupu/features/archive/logs_day_utils.dart';
+import 'package:pupu/features/archive/widgets/chart_info_tooltip.dart';
+import 'package:pupu/features/archive/widgets/record_delete_ui.dart';
 import 'package:pupu/features/timer/session_record_utils.dart';
+import 'package:pupu/features/timer/widgets/audio_picker.dart';
 import 'package:pupu/models/bowel_record.dart';
+import 'package:pupu/providers/home_audio_provider.dart';
 import 'package:pupu/providers/records_provider.dart';
 import 'package:pupu/features/archive/chart_analysis_card.dart';
 
@@ -24,10 +29,12 @@ class NewArchiveScreen extends ConsumerStatefulWidget {
   ConsumerState<NewArchiveScreen> createState() => _NewArchiveScreenState();
 }
 
-class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
+class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen>
+    with TickerProviderStateMixin {
   late DateTime _currentMonth;
   DateTime? _currentDay;
   late PageController _pageController;
+  late AnimationController _musicRotationController;
   int _currentPage = 0;
   bool _archiveOverlayVisible = false;
 
@@ -36,6 +43,10 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
     super.initState();
     _currentMonth = DateTime.now();
     _pageController = PageController();
+    _musicRotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    );
   }
 
   void _previousMonth() {
@@ -69,30 +80,42 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _musicRotationController.dispose();
     super.dispose();
+  }
+
+  void _syncMusicRotation(bool isPlaying) {
+    if (isPlaying) {
+      if (!_musicRotationController.isAnimating) {
+        _musicRotationController.repeat();
+      }
+      return;
+    }
+    _musicRotationController.stop();
   }
 
   @override
   Widget build(BuildContext context) {
     final asyncRecords = ref.watch(recordsWithRefreshProvider);
+    final isHomeMusicPlaying = ref.watch(homeMusicPlayingProvider).value ?? false;
+    _syncMusicRotation(isHomeMusicPlaying);
 
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
           // 背景图片 hug_1.png (100%透明度) - 固定不变
-          Image.asset(
-            'assets/images/hug_1.png',
-            fit: BoxFit.cover,
-          ),
+          Image.asset('assets/images/hug_1.png', fit: BoxFit.cover),
           // 内容层
           SafeArea(
             child: Column(
               children: [
                 // 顶部导航栏
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       GestureDetector(
@@ -134,16 +157,21 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
                       Center(
                         child: asyncRecords.when(
                           loading: () => const CircularProgressIndicator(
-                              color: Colors.white),
-                          error: (e, _) => Text('$e',
-                              style: const TextStyle(color: Colors.white)),
+                            color: Colors.white,
+                          ),
+                          error: (e, _) => Text(
+                            '$e',
+                            style: const TextStyle(color: Colors.white),
+                          ),
                           data: (records) {
                             final Map<String, int> dailyCounts = {};
-                            final Map<String, List<BowelRecord>> dailyRecords = {};
+                            final Map<String, List<BowelRecord>> dailyRecords =
+                                {};
 
                             for (final record in records) {
-                              final dateKey = DateFormat('yyyy-MM-dd')
-                                  .format(record.dateTime);
+                              final dateKey = DateFormat(
+                                'yyyy-MM-dd',
+                              ).format(record.dateTime);
                               dailyCounts[dateKey] =
                                   (dailyCounts[dateKey] ?? 0) + 1;
                               dailyRecords.putIfAbsent(dateKey, () => []);
@@ -166,7 +194,8 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
                       Center(
                         child: asyncRecords.when(
                           loading: () => const CircularProgressIndicator(
-                              color: Colors.white),
+                            color: Colors.white,
+                          ),
                           error: (e, _) => Text(
                             '$e',
                             style: const TextStyle(color: Colors.white),
@@ -178,7 +207,8 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
                       Center(
                         child: asyncRecords.when(
                           loading: () => const CircularProgressIndicator(
-                              color: Colors.white),
+                            color: Colors.white,
+                          ),
                           error: (e, _) => Text(
                             '$e',
                             style: const TextStyle(color: Colors.white),
@@ -194,7 +224,10 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
                                 });
                               });
                             }
-                            final dayRecords = recordsForDay(records, currentDay);
+                            final dayRecords = recordsForDay(
+                              records,
+                              currentDay,
+                            );
                             return LogsCard(
                               currentDay: currentDay,
                               dayRecords: dayRecords,
@@ -202,7 +235,9 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
                               onNextDay: _nextDay,
                               onOverlayVisibilityChanged: (visible) {
                                 if (!mounted) return;
-                                setState(() => _archiveOverlayVisible = visible);
+                                setState(
+                                  () => _archiveOverlayVisible = visible,
+                                );
                               },
                               onSubmitAnswers: (record, answers) async {
                                 await mergeQuestionnaireAnswers(
@@ -212,6 +247,14 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
                                 if (!mounted) return;
                                 bumpRecordsRefresh(ref);
                               },
+                              onDeleteRecord: (record) async {
+                                final confirmed =
+                                    await showRecordDeleteConfirmDialog(
+                                      context: context,
+                                    );
+                                if (confirmed != true) return;
+                                await deleteRecordAndRefresh(ref, record.id);
+                              },
                             );
                           },
                         ),
@@ -220,6 +263,15 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            right: 24,
+            bottom: 34,
+            child: TimerMusicButton(
+              rotationAnimation: _musicRotationController,
+              onTap: () =>
+                  ref.read(homeAudioServiceProvider).toggleFromSubPage(ref),
             ),
           ),
         ],
@@ -249,12 +301,15 @@ class _NewArchiveScreenState extends ConsumerState<NewArchiveScreen> {
   }
 
   void _showDayRecords(
-      BuildContext context, DateTime date, List<BowelRecord> dayRecords) {
+    BuildContext context,
+    DateTime date,
+    List<BowelRecord> dayRecords,
+  ) {
     if (dayRecords.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${DateFormat('MMM d, yyyy').format(date)} - No records',
+            '${DateFormat('MMM d, yyyy').format(date)} - No logs',
             style: AppTypography.body(),
           ),
           backgroundColor: Colors.grey[800],
@@ -315,10 +370,13 @@ class _LogCalendarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 326,
-      height: 620, // 加长下方长度
-      child: Stack(
+    final cardHeight = MediaQuery.sizeOf(context).height * (620 / 852);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 326, maxHeight: cardHeight),
+      child: SizedBox(
+        width: 326,
+        height: cardHeight,
+        child: Stack(
         children: [
           // 大液体玻璃卡片
           Positioned(
@@ -331,7 +389,7 @@ class _LogCalendarCard extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 1, sigmaY: 1),
                 child: Container(
                   width: 326,
-                  height: 620,
+                  height: cardHeight,
                   decoration: BoxDecoration(
                     // 更白更通透的颜色
                     color: Colors.white.withValues(alpha: 0.35),
@@ -363,20 +421,29 @@ class _LogCalendarCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // 标题: Log Calendar
-                      const Positioned(
-                        left: 61,
+                      // 标题 + Info: Log Calendar
+                      Positioned(
+                        left: 20,
+                        right: 20,
                         top: 46,
-                        child: Text(
-                          'Log Calendar',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 25,
-                            fontFamily: 'SF Pro',
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 5,
-                          ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            SizedBox(width: kChartInfoIconSize + 4),
+                            const Expanded(
+                              child: Text(
+                                'Log Calendar',
+                                textAlign: TextAlign.center,
+                                style: ArchiveTypography.pageTitle,
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.all(2),
+                              child: ChartInfoButton(
+                                content: chartInfoLogCalendar,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       // 月份导航 - 可点击快速选择日期
@@ -479,7 +546,9 @@ class _LogCalendarCard extends StatelessWidget {
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 16),
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
                                 child: _buildCalendarGrid(),
                               ),
                             ),
@@ -510,39 +579,7 @@ class _LogCalendarCard extends StatelessWidget {
                         top: 475,
                         child: _buildColorScaleCard(),
                       ),
-                      // Tip 文本 - 最下方居中
-                      const Positioned(
-                        left: 11,
-                        right: 11,
-                        bottom: 16,
-                        child: SizedBox(
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: 'Tip',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontFamily: 'SF Pro',
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text:
-                                      ': A darker shade simply means more logs that day——it\'s about frequency, not a measure of health.',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontFamily: 'SF Pro',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                  
                     ],
                   ),
                 ),
@@ -550,6 +587,7 @@ class _LogCalendarCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -606,8 +644,11 @@ class _LogCalendarCard extends StatelessWidget {
 
   Widget _buildCalendarGrid() {
     final firstDayOfMonth = DateTime(currentMonth.year, currentMonth.month, 1);
-    final lastDayOfMonth =
-        DateTime(currentMonth.year, currentMonth.month + 1, 0);
+    final lastDayOfMonth = DateTime(
+      currentMonth.year,
+      currentMonth.month + 1,
+      0,
+    );
     final firstWeekday = firstDayOfMonth.weekday % 7;
     final daysInMonth = lastDayOfMonth.day;
 
@@ -651,7 +692,7 @@ class _LogCalendarCard extends StatelessWidget {
                     fontSize: 16,
                     fontFamily: 'SF Pro',
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 5,
+                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -671,10 +712,6 @@ class _LogCalendarCard extends StatelessWidget {
       );
     }
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      children: rows,
-    );
+    return Column(mainAxisAlignment: MainAxisAlignment.start, children: rows);
   }
 }
-

@@ -1,6 +1,5 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -115,10 +114,10 @@ Future<void> showPrivatePermissionSettingsDialog(
   PrivatePermissionKind kind,
 ) async {
   final label = PrivatePermissionHelper.labelFor(kind);
-  final title = '$label blocked';
+  final title = '$label Access Blocked';
   final message = 'Please enable $label in system settings to continue.';
 
-  if (Platform.isIOS) {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
     await showCupertinoDialog<void>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
@@ -405,9 +404,9 @@ Future<bool?> showPrivateDeleteRecordDialog({
     barrierDismissible: false,
     useRootNavigator: true,
     builder: (ctx) => _PrivateSpaceSplitDialog(
-      title: plural ? 'Delete Records?' : 'Delete Record?',
-      leftLabel: 'No',
-      rightLabel: 'Yes',
+      title: plural ? 'Delete Entries?' : 'Delete Entry?',
+      leftLabel: 'Cancel',
+      rightLabel: 'Delete',
       rightIsDefault: true,
       onLeft: () => Navigator.pop(ctx, false),
       onRight: () => Navigator.pop(ctx, true),

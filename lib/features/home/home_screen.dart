@@ -70,11 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      ref.read(homeAudioServiceProvider).pauseForLeave();
-      return;
-    }
+    // HOME-003: 切后台不 pause，音乐继续；回前台仅检查跨日。
     if (state == AppLifecycleState.resumed) {
       ref.read(homeAudioServiceProvider).evaluateDayRollover();
     }
@@ -243,7 +239,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   /// 打开新档案页面
   void _openNewArchive(BuildContext context) {
-    ref.read(homeAudioServiceProvider).pauseForLeave();
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (_, _, _) => const NewArchiveScreen(),
@@ -264,7 +259,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
 
   void _openPrivateSpace(BuildContext context) {
-    ref.read(homeAudioServiceProvider).pauseForLeave();
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (_, _, _) => const PrivateSpaceScreen(),

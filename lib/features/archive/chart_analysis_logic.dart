@@ -92,6 +92,9 @@ class ChartIssuePeriodData {
 
 DateTime chartToday({DateTime? now}) => normalizeDay(now ?? DateTime.now());
 
+/// Earliest selectable day in chart date pickers (aligned with UI).
+DateTime chartPickerMinDate() => DateTime(2025, 1, 1);
+
 DateTime chartWindowEnd({
   required int offsetDays,
   DateTime? now,
@@ -114,15 +117,64 @@ DateTime earliestRecordDay(List<BowelRecord> records, {DateTime? now}) {
 }
 
 int maxChartOffsetDays({
-  required List<BowelRecord> records,
   required int days,
   DateTime? now,
+  DateTime? minDate,
 }) {
   final today = chartToday(now: now);
-  final earliest = earliestRecordDay(records, now: now);
+  final earliest = normalizeDay(minDate ?? chartPickerMinDate());
   final spanDays = today.difference(earliest).inDays;
   if (spanDays <= 0) return 0;
   return (spanDays ~/ days) * days;
+}
+
+int offsetForSelectedDate({
+  required DateTime selectedDate,
+  DateTime? now,
+}) {
+  final today = chartToday(now: now);
+  final selected = normalizeDay(selectedDate);
+  return math.max(0, today.difference(selected).inDays);
+}
+
+/// Days with at least one log, normalized — same rule as Log Calendar `dailyCounts`.
+Set<DateTime> logDaysFromRecords(List<BowelRecord> records) {
+  final days = <DateTime>{};
+  for (final record in records) {
+    days.add(normalizeDay(record.dateTime));
+  }
+  return days;
+}
+
+/// Visual flags for a single day cell in the chart date picker.
+class ChartPickerDayStyle {
+  final bool showLogBackground;
+  final bool useTodayTextColor;
+  final bool showSelectionRing;
+
+  const ChartPickerDayStyle({
+    this.showLogBackground = false,
+    this.useTodayTextColor = false,
+    this.showSelectionRing = false,
+  });
+}
+
+ChartPickerDayStyle resolveChartPickerDayStyle({
+  required DateTime day,
+  required DateTime today,
+  required DateTime selected,
+  required Set<DateTime> logDays,
+}) {
+  final normalizedDay = normalizeDay(day);
+  final isToday = normalizedDay == normalizeDay(today);
+  final isSelected = normalizedDay == normalizeDay(selected);
+  final hasLog = logDays.contains(normalizedDay);
+
+  return ChartPickerDayStyle(
+    showLogBackground: hasLog && !isToday,
+    useTodayTextColor: isToday,
+    showSelectionRing: isSelected,
+  );
 }
 
 ChartDateWindow resolveChartWindow({
@@ -131,7 +183,7 @@ ChartDateWindow resolveChartWindow({
   required int offsetDays,
   DateTime? now,
 }) {
-  final maxOffset = maxChartOffsetDays(records: records, days: days, now: now);
+  final maxOffset = maxChartOffsetDays(days: days, now: now);
   final safeOffset = offsetDays.clamp(0, maxOffset);
   final end = chartWindowEnd(offsetDays: safeOffset, now: now);
   final start = chartWindowStart(end: end, days: days);
@@ -182,6 +234,9 @@ List<int> formatDistributionPercents(
 ) {
   if (ratios.isEmpty) return const [];
   final raw = ratios.map((r) => (r.clamp(0.0, 1.0) * 100)).toList();
+  if (raw.every((value) => value == 0)) {
+    return List<int>.filled(ratios.length, 0);
+  }
   final floored = raw.map((v) => v.floor()).toList();
   final totalFloor = floored.fold<int>(0, (sum, value) => sum + value);
   var remain = math.max(0, 100 - totalFloor);

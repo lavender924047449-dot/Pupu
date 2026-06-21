@@ -1,7 +1,7 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:pupu/features/private_space/private_note_image.dart';
 import 'package:pupu/models/private_entry.dart';
 
 class DraftImageGroupCard extends StatelessWidget {
@@ -44,7 +44,7 @@ class DraftImageGroupCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 child: AspectRatio(
                   aspectRatio: 1.55,
-                  child: _BlockImage(path: image.path),
+                  child: PrivateNoteImage(path: image.path),
                 ),
               ),
             ),
@@ -170,22 +170,5 @@ class HistoryBlockBadge extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _BlockImage extends StatelessWidget {
-  const _BlockImage({required this.path});
-
-  final String path;
-
-  @override
-  Widget build(BuildContext context) {
-    if (path.startsWith('assets/')) {
-      return Image.asset(path, fit: BoxFit.cover);
-    }
-    if (path.startsWith('http')) {
-      return Image.network(path, fit: BoxFit.cover);
-    }
-    return Image.file(File(path), fit: BoxFit.cover);
   }
 }

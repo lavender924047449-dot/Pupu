@@ -18,7 +18,6 @@ import 'package:pupu/features/timer/widgets/timer_session_summary.dart';
 import 'package:pupu/features/timer/widgets/timer_wave_painter.dart';
 import 'package:pupu/features/timer/widgets/warm_sentence_overlay.dart';
 import 'package:pupu/providers/audio_provider.dart';
-import 'package:pupu/providers/home_audio_provider.dart';
 import 'package:pupu/providers/records_provider.dart';
 
 class TimerScreen extends ConsumerStatefulWidget {
@@ -166,7 +165,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
     _audioRotationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 20),
     );
 
     _audioPanelController = AnimationController(
@@ -222,13 +221,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     final screenSize = MediaQuery.of(context).size;
 
     return PopScope(
-      onPopInvokedWithResult: (didPop, _) async {
-        if (!didPop || _handlingBackNavigation) return;
-        // 系统返回上一页时立即停掉 Timer 音频，避免等待 dispose 造成残留。
-        unawaited(ref.read(timerAudioServiceProvider).stop());
-        if (!_showSessionPanel) return;
-        _handlingBackNavigation = true;
-        await _resumeHomeMusicIfEnabled();
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleSystemBack();
       },
       child: Scaffold(
         body: Stack(
@@ -392,7 +388,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
       width: 268,
       height: 106,
       child: Text(
-        '$minutes：$seconds',
+        '$minutes:$seconds',
         textAlign: TextAlign.center,
         style: _sfProStyle(
           color: Colors.white,
@@ -803,19 +799,87 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     bumpRecordsRefresh(ref);
   }
 
-  Future<void> _resumeHomeMusicIfEnabled() async {
-    final isEnabled = ref.read(homeMusicEnabledProvider);
-    if (!isEnabled) return;
-    await ref.read(homeAudioServiceProvider).resume();
+  /// 系统返回 / iOS 边缘滑动：按 UI 状态分流（音频面板 → 问卷 → session → 计时中 → idle）。
+  void _handleSystemBack() {
+    if (_handlingBackNavigation || _isExiting) return;
+
+    if (_showAudioPanel) {
+      _closeAudioPanel();
+      return;
+    }
+
+    if (_showLogWithMeQuestionnaire) {
+      _showQuestionnaireLeaveDialog();
+      return;
+    }
+
+    if (_showSessionPanel) {
+      _showMaybeLaterDialog();
+      return;
+    }
+
+    if (_uiState == _TimerUiState.running || _uiState == _TimerUiState.paused) {
+      _showLeaveTimerDialog();
+      return;
+    }
+
+    Navigator.of(context).pop();
+  }
+
+  void _showLeaveTimerDialog() {
+    showTimerGlassDialog(
+      context,
+      child: TimerLeaveTimerConfirmDialog(
+        onLeave: _discardActiveSessionAndExit,
+        onCancel: () {},
+      ),
+    );
+  }
+
+  void _showQuestionnaireLeaveDialog() {
+    showTimerGlassDialog(
+      context,
+      child: TimerQuestionnaireLeaveConfirmDialog(
+        onLeave: _leaveQuestionnaireToSummary,
+        onCancel: () {},
+      ),
+    );
+  }
+
+  /// running/paused 确认 Leave：丢弃本次计时（不写 record）后回 Home。
+  Future<void> _discardActiveSessionAndExit() async {
+    _timer?.cancel();
+    _stopWarm();
+    setState(() {
+      _elapsed = Duration.zero;
+      _elapsedBeforeCurrentRun = Duration.zero;
+      _runningStartedAt = null;
+      _sessionStartedAt = null;
+      _uiState = _TimerUiState.idle;
+      _waveIsAnimating = false;
+      _wavePhaseOffset = 0.0;
+      _showSessionPanel = false;
+      _showLogWithMeQuestionnaire = false;
+      _resetQuestionnaireFlow();
+      _resetAudioOnSessionEnter();
+    });
+    _waveAnimationController.stop();
+    await _exitToHome();
+  }
+
+  void _leaveQuestionnaireToSummary() {
+    setState(() {
+      _showLogWithMeQuestionnaire = false;
+      _resetQuestionnaireFlow();
+    });
   }
 
   Future<void> _exitToHome() async {
-    // 统一 Home 退出：恢复 BGM 后 pop，视觉由 Route reverse 过渡负责。
+    // 统一 Home 退出：停 Timer 音频后 pop；Home BGM 保持 pause，需回 Home 点星星 resume。
     if (_handlingBackNavigation || _isExiting) return;
     _handlingBackNavigation = true;
     _isExiting = true;
     await ref.read(timerAudioServiceProvider).stop();
-    await _resumeHomeMusicIfEnabled();
     if (mounted) Navigator.of(context).pop();
   }
 

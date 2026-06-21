@@ -26,7 +26,7 @@ class LogNowButton extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              'Log now',
+              'Log Now',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,

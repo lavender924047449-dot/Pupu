@@ -1,12 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:pupu/features/private_space/private_note_blocks.dart';
+import 'package:pupu/features/private_space/private_note_image.dart';
 import 'package:pupu/features/private_space/private_note_document_controller.dart';
 import 'package:pupu/features/private_space/private_space_clipboard.dart';
 import 'package:pupu/features/private_space/private_space_text_selection.dart';
+import 'package:pupu/features/private_space/private_space_ui.dart';
 import 'package:pupu/models/private_entry.dart';
 import 'package:pupu/models/private_note_document.dart';
 
@@ -19,6 +19,7 @@ class PrivateNoteEditor extends StatefulWidget {
     this.enabled = true,
     this.onVoiceRename,
     this.onVoiceDelete,
+    this.onVoicePlayTap,
     this.onImageDoubleTap,
     this.onImageLongPress,
     this.onImageCopy,
@@ -32,6 +33,7 @@ class PrivateNoteEditor extends StatefulWidget {
   final bool enabled;
   final void Function(int opIndex, PrivateVoiceData voice)? onVoiceRename;
   final void Function(int opIndex, PrivateVoiceData voice)? onVoiceDelete;
+  final Future<void> Function(String path)? onVoicePlayTap;
   final void Function(int opIndex, PrivateImageData image)? onImageDoubleTap;
   final void Function(int opIndex, PrivateImageData image)? onImageLongPress;
   final void Function(int opIndex, PrivateImageData image)? onImageCopy;
@@ -45,6 +47,19 @@ class PrivateNoteEditor extends StatefulWidget {
 
 class _PrivateNoteEditorState extends State<PrivateNoteEditor> {
   static const _viewportPadding = 15.0;
+  static const _entryPlaceholderText = 'Speak to the galaxy...';
+  static const _listPaddingTop = 10.0;
+  static const _textFieldPaddingVertical = 2.0;
+
+  static final _entryPlaceholderStyle = TextStyle(
+    color: PrivateSpaceColors.accent.withValues(alpha: 0.70),
+    fontSize: 18,
+    fontStyle: FontStyle.italic,
+    fontFamily: 'Josefin Sans',
+    fontWeight: FontWeight.w200,
+    height: 1.78,
+    decoration: TextDecoration.none,
+  );
 
   /// Coalesces multiple scroll requests within the same frame.
   bool _scrollScheduled = false;
@@ -173,12 +188,28 @@ class _PrivateNoteEditorState extends State<PrivateNoteEditor> {
 
     return Stack(
       children: [
-        ListView(
-          controller: widget.scrollController,
-          padding: const EdgeInsets.only(top: 10, bottom: 10),
-          physics: const ClampingScrollPhysics(),
-          children: items,
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _handlePaperTap,
+          child: ListView(
+            controller: widget.scrollController,
+            padding: const EdgeInsets.only(top: _listPaddingTop, bottom: 10),
+            physics: const ClampingScrollPhysics(),
+            children: items,
+          ),
         ),
+        if (widget.controller.showEntryPlaceholder)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: _listPaddingTop + _textFieldPaddingVertical,
+            child: IgnorePointer(
+              child: Text(
+                _entryPlaceholderText,
+                style: _entryPlaceholderStyle,
+              ),
+            ),
+          ),
         // Always mounted so [embedKeyboardFocusNode] stays attached for reliable focus.
         Positioned(
           left: 0,
@@ -192,6 +223,12 @@ class _PrivateNoteEditorState extends State<PrivateNoteEditor> {
         ),
       ],
     );
+  }
+
+  /// Focuses the first text field when the user taps empty paper (not an embed).
+  void _handlePaperTap() {
+    if (!widget.enabled) return;
+    widget.controller.focusFirstText(requestKeyboard: true);
   }
 
   KeyEventResult _handleEmbedKey(FocusNode node, KeyEvent event) {
@@ -727,6 +764,7 @@ class _PrivateNoteEditorState extends State<PrivateNoteEditor> {
         child: InlineVoiceBubble(
           voice: voice,
           onRename: () => widget.onVoiceRename?.call(opIndex, voice),
+          onPlayTap: widget.onVoicePlayTap,
         ),
       ),
     );
@@ -748,34 +786,12 @@ class _PrivateNoteEditorState extends State<PrivateNoteEditor> {
             borderRadius: BorderRadius.circular(10),
             child: AspectRatio(
               aspectRatio: 1.55,
-              child: _NoteImage(path: image.path),
+              child: PrivateNoteImage(path: image.path),
             ),
           ),
         ),
       ),
     );
-  }
-}
-
-class _NoteImage extends StatelessWidget {
-  const _NoteImage({required this.path});
-  final String path;
-
-  @override
-  Widget build(BuildContext context) {
-    if (path.startsWith('assets/')) {
-      return Image.asset(path, fit: BoxFit.cover);
-    }
-    final file = File(path);
-    if (!file.existsSync()) {
-      return Container(
-        color: const Color(0x33141D2A),
-        child: const Center(
-          child: Icon(Icons.broken_image_outlined, color: Colors.white38),
-        ),
-      );
-    }
-    return Image.file(file, fit: BoxFit.cover);
   }
 }
 

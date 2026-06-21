@@ -53,281 +53,31 @@ class TimerSessionSummaryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sessionMinutes = lastSessionDuration.inMinutes;
-    final sessionSeconds = lastSessionDuration.inSeconds.remainder(60);
-    final todayLogCount = summaryStats?.todayCount ?? 0;
-    final hoursSinceLastLog = summaryStats?.hoursSinceLastLog ?? 0;
-    final weekLogCount = summaryStats?.weekCount ?? 0;
-    final textScaler = MediaQuery.textScalerOf(context);
     final panelTop = screenSize.height * (216 / 852);
     final panelHeight = screenSize.height * (636 / 852);
     final xScale = screenSize.width / 393;
-    final yScale = panelHeight / 636;
 
     double sx(double value) => value * xScale;
-    double sy(double value) => value * yScale;
 
-    final everyMomentWidth = sx(333);
-    final everyMomentTop = sy(32);
-    final everyMomentStyle = josefinStyle(
-      color: Colors.white,
-      fontSize: 18,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0,
-      height: 1.24,
-    );
-
-    final everyMomentPainter = TextPainter(
-      text: TextSpan(text: currentEveryMomentText),
-      maxLines: null,
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-    )..text = TextSpan(text: currentEveryMomentText, style: everyMomentStyle)
-      ..layout(maxWidth: everyMomentWidth);
-    final everyMomentBoxHeight = everyMomentPainter.height + sy(6);
-    final everyMomentBottom = everyMomentTop + everyMomentBoxHeight;
-
-    final detailsTop = sy(360);
-    final detailsWidth = sx(372);
-    final detailsStyle = josefinStyle(
-      color: const Color(0xFFE5E5EA),
-      fontSize: 18,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0,
-      height: 1.26,
-    );
-    const detailsText =
-        'Here are some details you can track for this session. Smooth or not, recording these signals helps you better understand your body.';
-    final detailsPainter = TextPainter(
-      text: const TextSpan(text: detailsText),
-      maxLines: null,
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-    )..text = TextSpan(text: detailsText, style: detailsStyle)
-      ..layout(maxWidth: detailsWidth);
-    final detailsBoxHeight = detailsPainter.height + sy(6);
-
-    final summaryTextSpan = TextSpan(
-      children: [
-        TextSpan(
-          text: 'Session Summary:\n',
-          style: sfProNoShadowStyle(
-            color: Colors.black,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: 'Duration:',
-          style: sfProNoShadowStyle(
-            color: const Color(0xFFE5E5EA),
-            fontSize: 17,
-            fontWeight: FontWeight.w400,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: ' $sessionMinutes min $sessionSeconds sec\n',
-          style: sfProNoShadowStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: "Today's Log:",
-          style: sfProNoShadowStyle(
-            color: const Color(0xFFE5E5EA),
-            fontSize: 17,
-            fontWeight: FontWeight.w400,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: ' $todayLogCount\n',
-          style: sfProNoShadowStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: 'Time since last log:',
-          style: sfProNoShadowStyle(
-            color: const Color(0xFFE5E5EA),
-            fontSize: 17,
-            fontWeight: FontWeight.w400,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: ' $hoursSinceLastLog hrs\n',
-          style: sfProNoShadowStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: 'Total logs this week:',
-          style: sfProNoShadowStyle(
-            color: const Color(0xFFE5E5EA),
-            fontSize: 17,
-            fontWeight: FontWeight.w400,
-            letterSpacing: -0.07,
-          ),
-        ),
-        TextSpan(
-          text: ' $weekLogCount\n',
-          style: sfProNoShadowStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.07,
-          ),
-        ),
-      ],
-    );
-
-    final summaryPainter = TextPainter(
-      text: summaryTextSpan,
-      maxLines: null,
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-    )..layout(maxWidth: sx(372));
-    final availableSpace = detailsTop - everyMomentBottom;
-    final computedGap = (availableSpace - summaryPainter.height) / 2;
-    final balancedGap = computedGap < 0 ? 0.0 : computedGap;
-    final opticalOffset = sy(12.5);
-    final summaryTop = everyMomentBottom + balancedGap + opticalOffset;
-
-    final canLogWithMe = committedRecordId != null && !isExiting;
-    final summaryContent = Stack(
-      key: const ValueKey('summary-content'),
-      children: [
-        Positioned(
-          left: sx(13),
-          top: detailsTop,
-          child: SizedBox(
-            width: detailsWidth,
-            height: detailsBoxHeight,
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Text(detailsText, style: detailsStyle),
-            ),
-          ),
-        ),
-        Positioned(
-          left: sx(30),
-          top: everyMomentTop,
-          child: SizedBox(
-            width: everyMomentWidth,
-            height: everyMomentBoxHeight,
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Text(
-                currentEveryMomentText,
-                style: everyMomentStyle,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: sx(13),
-          top: summaryTop,
-          child: SizedBox(
-            width: sx(372),
-            child: Opacity(
-              opacity: 0.97,
-              child: Text.rich(summaryTextSpan),
-            ),
-          ),
-        ),
-        Positioned(
-          left: sx(113),
-          top: sy(463),
-          child: Opacity(
-            opacity: canLogWithMe ? 1.0 : 0.5,
-            child: GestureDetector(
-              onTap: canLogWithMe ? onOpenQuestionnaire : null,
-              child: Container(
-                width: sx(166),
-                height: sy(57),
-                decoration: ShapeDecoration(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(1000),
-                  ),
-                  shadows: const [
-                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 0.2),
-                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 0.4),
-                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 1.39),
-                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 2.79),
-                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 4.78),
-                    BoxShadow(color: Color(0xFFFFFFFF), blurRadius: 8.37),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        clipBehavior: Clip.antiAlias,
-                        decoration: ShapeDecoration(
-                          color: const Color(0xFFF7F7F7),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(296),
-                          ),
-                          shadows: const [
-                            BoxShadow(
-                              color: Color(0x1E000000),
-                              blurRadius: 40,
-                              offset: Offset(0, 8),
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                    const Center(
-                      child: Text(
-                        'Log with me',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFF1A1A1A),
-                          fontSize: 17,
-                          fontFamily: 'Josefin Sans',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: sx(145),
-          top: sy(551),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: isExiting ? null : onMaybeLater,
-            child: const Text(
-              'Maybe Later',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 17,
-                fontFamily: 'Josefin Sans',
-                fontWeight: FontWeight.w500,
-                decoration: TextDecoration.underline,
-              ),
-            ),
-          ),
-        ),
-      ],
+    final summaryContent = _SessionSummaryBody(
+      horizontalPadding: sx(13),
+      contentWidth: sx(372),
+      everyMomentWidth: sx(333),
+      sessionMinutes: lastSessionDuration.inMinutes,
+      sessionSeconds: lastSessionDuration.inSeconds.remainder(60),
+      todayLogCount: summaryStats?.todayCount ?? 0,
+      hoursSinceLastLog: summaryStats?.hoursSinceLastLog ?? 0,
+      weekLogCount: summaryStats?.weekCount ?? 0,
+      currentEveryMomentText: currentEveryMomentText,
+      canLogWithMe: committedRecordId != null && !isExiting,
+      isExiting: isExiting,
+      onOpenQuestionnaire: onOpenQuestionnaire,
+      onMaybeLater: onMaybeLater,
+      sfProNoShadowStyle: sfProNoShadowStyle,
+      josefinStyle: josefinStyle,
+      logButtonWidth: sx(166),
+      logButtonHeight: panelHeight * (57 / 636),
+      ctaGap: (screenSize.height * (28 / 852)).clamp(20.0, 40.0),
     );
 
     return Positioned(
@@ -352,6 +102,371 @@ class TimerSessionSummaryPanel extends StatelessWidget {
                 summaryContent: summaryContent,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionSummaryBody extends StatefulWidget {
+  const _SessionSummaryBody({
+    required this.horizontalPadding,
+    required this.contentWidth,
+    required this.everyMomentWidth,
+    required this.sessionMinutes,
+    required this.sessionSeconds,
+    required this.todayLogCount,
+    required this.hoursSinceLastLog,
+    required this.weekLogCount,
+    required this.currentEveryMomentText,
+    required this.canLogWithMe,
+    required this.isExiting,
+    required this.onOpenQuestionnaire,
+    required this.onMaybeLater,
+    required this.sfProNoShadowStyle,
+    required this.josefinStyle,
+    required this.logButtonWidth,
+    required this.logButtonHeight,
+    required this.ctaGap,
+  });
+
+  final double horizontalPadding;
+  final double contentWidth;
+  final double everyMomentWidth;
+  final int sessionMinutes;
+  final int sessionSeconds;
+  final int todayLogCount;
+  final int hoursSinceLastLog;
+  final int weekLogCount;
+  final String currentEveryMomentText;
+  final bool canLogWithMe;
+  final bool isExiting;
+  final VoidCallback onOpenQuestionnaire;
+  final VoidCallback onMaybeLater;
+  final TextStyle Function({
+    required Color color,
+    required double fontSize,
+    required FontWeight fontWeight,
+    double? letterSpacing,
+    TextDecoration? decoration,
+  }) sfProNoShadowStyle;
+  final TextStyle Function({
+    required Color color,
+    required double fontSize,
+    required FontWeight fontWeight,
+    double? letterSpacing,
+    double? height,
+    TextDecoration? decoration,
+  }) josefinStyle;
+  final double logButtonWidth;
+  final double logButtonHeight;
+  final double ctaGap;
+
+  @override
+  State<_SessionSummaryBody> createState() => _SessionSummaryBodyState();
+}
+
+class _SessionSummaryBodyState extends State<_SessionSummaryBody> {
+  static const _detailsCollapsedText =
+      'You can add log details to better understand your body.';
+  static const _detailsExpandedText =
+      'Track how it went, how you felt, and anything unusual. '
+      'Smooth or not, these details help you spot patterns over time.';
+
+  bool _detailsExpanded = false;
+
+  TextStyle _labelStyle() => widget.sfProNoShadowStyle(
+        color: const Color(0xFFE5E5EA),
+        fontSize: 17,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.07,
+      );
+
+  TextStyle _valueStyle() => widget.sfProNoShadowStyle(
+        color: Colors.white,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.07,
+      );
+
+  Widget _statRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(label, style: _labelStyle()),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: _valueStyle(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Session Summary 统计区 + 可折叠说明文（不含 CTA）。
+  Widget _buildSummarySection(TextStyle detailsStyle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Opacity(
+          opacity: 0.97,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Session Summary:',
+                style: widget.sfProNoShadowStyle(
+                  color: const Color(0xFF0088FF),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.07,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _statRow(
+                'Duration:',
+                '${widget.sessionMinutes} min ${widget.sessionSeconds} sec',
+              ),
+              _statRow("Today's Log:", '${widget.todayLogCount}'),
+              _statRow(
+                'Time since last log:',
+                '${widget.hoursSinceLastLog} hr',
+              ),
+              _statRow(
+                'Total logs this week:',
+                '${widget.weekLogCount}',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _detailsExpanded = !_detailsExpanded),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  _detailsExpanded
+                      ? _detailsExpandedText
+                      : _detailsCollapsedText,
+                  style: detailsStyle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _detailsExpanded ? '▲' : '▼',
+                style: detailsStyle.copyWith(
+                  color: const Color(0xFF0088FF),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Log with me / Maybe Later CTA 区（保留 SafeArea 底部避让）。
+  Widget _buildCtaSection() {
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Opacity(
+              opacity: widget.canLogWithMe ? 1.0 : 0.5,
+              child: Semantics(
+                button: true,
+                enabled: widget.canLogWithMe,
+                label: 'Log with me',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap:
+                        widget.canLogWithMe ? widget.onOpenQuestionnaire : null,
+                    borderRadius: BorderRadius.circular(1000),
+                    child: Container(
+                      width: widget.logButtonWidth,
+                      height: widget.logButtonHeight,
+                      decoration: ShapeDecoration(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(1000),
+                        ),
+                        shadows: const [
+                          BoxShadow(
+                            color: Color(0xFFFFFFFF),
+                            blurRadius: 0.2,
+                          ),
+                          BoxShadow(
+                            color: Color(0xFFFFFFFF),
+                            blurRadius: 0.4,
+                          ),
+                          BoxShadow(
+                            color: Color(0xFFFFFFFF),
+                            blurRadius: 1.39,
+                          ),
+                          BoxShadow(
+                            color: Color(0xFFFFFFFF),
+                            blurRadius: 2.79,
+                          ),
+                          BoxShadow(
+                            color: Color(0xFFFFFFFF),
+                            blurRadius: 4.78,
+                          ),
+                          BoxShadow(
+                            color: Color(0xFFFFFFFF),
+                            blurRadius: 8.37,
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Container(
+                              clipBehavior: Clip.antiAlias,
+                              decoration: ShapeDecoration(
+                                color: const Color(0xFFF7F7F7),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(296),
+                                ),
+                                shadows: const [
+                                  BoxShadow(
+                                    color: Color(0x1E000000),
+                                    blurRadius: 40,
+                                    offset: Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const Center(
+                            child: Text(
+                              'Log with me',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Color(0xFF0088FF),
+                                fontSize: 17,
+                                fontFamily: 'Josefin Sans',
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: TextButton(
+              onPressed: widget.isExiting ? null : widget.onMaybeLater,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white.withValues(alpha: 0.85),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+              ),
+              child: Text(
+                'Maybe Later',
+                style: widget.josefinStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 引导语以下区域：在剩余视口高度内垂直居中；内容超出时可滚动。
+  Widget _buildCenteredScrollableSummary(TextStyle detailsStyle) {
+    return Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewportHeight = constraints.maxHeight;
+
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              // 至少占满引导语以下的可见高度，以便 Center 能计算垂直中心。
+              constraints: BoxConstraints(minHeight: viewportHeight),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildSummarySection(detailsStyle),
+                    SizedBox(height: widget.ctaGap),
+                    _buildCtaSection(),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detailsStyle = widget.josefinStyle(
+      color: const Color(0xFFE5E5EA),
+      fontSize: 18,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0,
+      height: 1.26,
+    );
+
+    return KeyedSubtree(
+      key: const ValueKey('summary-content'),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 暖心引导语：固定顶部，不随下方滚动。
+            const SizedBox(height: 32),
+            SizedBox(
+              width: widget.everyMomentWidth,
+              child: Text(
+                widget.currentEveryMomentText,
+                style: widget.josefinStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  height: 1.24,
+                ),
+              ),
+            ),
+            // 引导语与居中块之间的最小间距（2.B）。
+            const SizedBox(height: 20),
+            _buildCenteredScrollableSummary(detailsStyle),
           ],
         ),
       ),

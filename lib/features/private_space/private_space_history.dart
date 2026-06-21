@@ -121,7 +121,7 @@ class PrivateSpaceHistoryEntryCard extends StatelessWidget {
                                 ),
                               ),
                             Text(
-                              DateFormat('yyyy / MM / dd').format(entry.updatedAt),
+                              DateFormat('MMM d, yyyy').format(entry.updatedAt),
                               style: const TextStyle(
                                 color: Color(0x99FEF3C7),
                                 fontSize: 11,
@@ -304,4 +304,13 @@ class _SwipeRevealCardState extends State<_SwipeRevealCard>
       ),
     );
   }
+}
+
+/// Clamps a saved history list scroll offset when list length or order changes.
+double clampHistoryScrollOffset({
+  required double savedOffset,
+  required double maxScrollExtent,
+}) {
+  if (maxScrollExtent <= 0) return 0;
+  return savedOffset.clamp(0.0, maxScrollExtent);
 }

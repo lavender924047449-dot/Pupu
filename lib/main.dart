@@ -2,9 +2,12 @@
 /// MVP: 排便记录、健康管理、私人空间
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pupu/app.dart';
 import 'package:pupu/services/local_storage.dart' as local_storage;
@@ -13,8 +16,17 @@ import 'package:pupu/services/local_storage.dart' as local_storage;
 const String _supabaseUrl = 'https://YOUR_PROJECT.supabase.co';
 const String _supabasePublishableKey = 'YOUR_PUBLISHABLE_KEY';
 
+void _configureImagePicker() {
+  if (kIsWeb) return;
+  final impl = ImagePickerPlatform.instance;
+  if (impl is ImagePickerAndroid) {
+    impl.useAndroidPhotoPicker = true;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureImagePicker();
 
   // 竖屏锁定
   await SystemChrome.setPreferredOrientations([

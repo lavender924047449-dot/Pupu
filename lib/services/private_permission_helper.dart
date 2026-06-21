@@ -1,5 +1,5 @@
-import 'dart:io' show Platform;
-
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Media permissions used by Private Space features.
@@ -29,7 +29,7 @@ class PrivatePermissionHelper {
   /// English label for dialogs and snack messages.
   static String labelFor(PrivatePermissionKind kind) {
     return switch (kind) {
-      PrivatePermissionKind.photoLibrary => 'Photo library',
+      PrivatePermissionKind.photoLibrary => 'Photos',
       PrivatePermissionKind.camera => 'Camera',
       PrivatePermissionKind.microphone => 'Microphone',
     };
@@ -51,7 +51,9 @@ class PrivatePermissionHelper {
   /// Android gallery uses the system Photo Picker via `image_picker` — no
   /// READ_MEDIA_IMAGES preflight (see image_picker Android docs).
   static bool requiresPreflight(PrivatePermissionKind kind) {
-    if (kind == PrivatePermissionKind.photoLibrary && Platform.isAndroid) {
+    if (kIsWeb) return false;
+    if (kind == PrivatePermissionKind.photoLibrary &&
+        defaultTargetPlatform == TargetPlatform.android) {
       return false;
     }
     return true;

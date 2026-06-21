@@ -33,12 +33,30 @@ class PrivateDocSelectionState {
 
 /// Mutable v2 document with caret-aware inline inserts (segment-based, no Quill).
 class PrivateNoteDocumentController extends ChangeNotifier {
-  PrivateNoteDocumentController({PrivateNoteDocument? initial})
-      : _document = initial ?? PrivateNoteDocument.empty {
+  PrivateNoteDocumentController({
+    PrivateNoteDocument? initial,
+    bool showEntryPlaceholder = false,
+  })  : _showEntryPlaceholderEnabled = showEntryPlaceholder,
+        _document = initial ?? PrivateNoteDocument.empty {
     _document = _document.copyWith(ops: _normalizeOps(_document.ops));
     _ensureEditingSurface();
     _bindTextControllers();
     _clampCaretToDocument();
+  }
+
+  /// True only for brand-new blank notes; cleared permanently after first edit.
+  final bool _showEntryPlaceholderEnabled;
+  bool _entryPlaceholderDismissed = false;
+
+  /// Whether the first-line entry placeholder should render in the editor.
+  bool get showEntryPlaceholder =>
+      _showEntryPlaceholderEnabled && !_entryPlaceholderDismissed;
+
+  /// Hides the entry placeholder for the rest of this editing session.
+  void dismissEntryPlaceholder() {
+    if (!_showEntryPlaceholderEnabled || _entryPlaceholderDismissed) return;
+    _entryPlaceholderDismissed = true;
+    notifyListeners();
   }
 
   PrivateNoteDocument _document;
@@ -205,6 +223,8 @@ class PrivateNoteDocumentController extends ChangeNotifier {
   }
 
   int get imageCount => buildDocument().imageCount;
+
+  int get voiceCount => buildDocument().voiceCount;
 
   /// JSON snapshot of ops at last load/save — cursor moves do not affect this.
   String? _savedOpsJson;
@@ -756,6 +776,7 @@ class PrivateNoteDocumentController extends ChangeNotifier {
 
   /// Sync controller state when a text segment changes (including virtual leading text).
   void onTextEdited(int textFieldIndex, String value) {
+    dismissEntryPlaceholder();
     _recordHistorySnapshot();
     onTextSelectionChanged(textFieldIndex);
     if (!hasTextSegments && value.isNotEmpty) {
@@ -792,21 +813,39 @@ class PrivateNoteDocumentController extends ChangeNotifier {
   }
 
   void insertImageAtCaret(PrivateImageData image) {
+    insertImagesAtCaret([image]);
+  }
+
+  /// Inserts [images] at the current caret in order, as a single undo step.
+  void insertImagesAtCaret(List<PrivateImageData> images) {
+    if (images.isEmpty) return;
+    dismissEntryPlaceholder();
     _recordHistorySnapshot();
     _syncTextFromControllers();
 
-    PrivateDocCaret caret = _caretForInsert();
+    var insertCaret = _caretForInsert();
     if (!_selectionState.isCollapsed) {
       final start = _selectionState.startOffset;
       if (!deleteSelectionBySemanticRange(recordHistory: false)) return;
-      caret = _caretForLinearOffset(start);
+      insertCaret = _caretForLinearOffset(start);
     }
 
-    _insertOpAtCaret(PrivateDocImageOp(image), caret);
-    _document = _document.copyWith(ops: _normalizeOps(_document.ops));
+    for (final image in images) {
+      _insertOpAtCaret(PrivateDocImageOp(image), insertCaret);
+      _document = _document.copyWith(ops: _normalizeOps(_document.ops));
+      final onEmbed = _caretAfterEmbedInsert(insertCaret, image.id);
+      insertCaret = PrivateDocCaret(
+        opIndex: onEmbed.opIndex + 1,
+        textOffset: 0,
+      );
+    }
+
     _ensureEditingSurface();
     _bindTextControllers();
-    _caret = _caretAfterEmbedInsert(caret, image.id);
+    _caret = _caretAfterEmbedInsert(
+      const PrivateDocCaret(opIndex: 0, textOffset: 0),
+      images.last.id,
+    );
     final linear = _linearOffsetForCaret(_caret);
     _selectionState =
         PrivateDocSelectionState(anchorOffset: linear, focusOffset: linear);
@@ -817,6 +856,7 @@ class PrivateNoteDocumentController extends ChangeNotifier {
   /// Insert plain text at caret, replacing semantic selection when present.
   void pasteTextAtCaret(String text) {
     if (text.isEmpty) return;
+    dismissEntryPlaceholder();
     _recordHistorySnapshot();
     _syncTextFromControllers();
 
@@ -900,6 +940,7 @@ class PrivateNoteDocumentController extends ChangeNotifier {
   }
 
   void insertVoiceAtCaret(PrivateVoiceData voice) {
+    dismissEntryPlaceholder();
     _recordHistorySnapshot();
     _syncTextFromControllers();
     final caret = _caretForInsert();
@@ -1084,6 +1125,10 @@ class PrivateNoteDocumentController extends ChangeNotifier {
 
   /// Caret used for toolbar embed inserts (after last embed when applicable).
   PrivateDocCaret _caretForInsert() {
+    if (isCaretOnEmbed && _caret.textOffset == 1) {
+      return PrivateDocCaret(opIndex: _caret.opIndex + 1, textOffset: 0);
+    }
+
     final textCaret = _caretForTextField(_focusedTextIndex);
     final ops = _document.ops;
     if (textCaret.opIndex >= ops.length) return textCaret;

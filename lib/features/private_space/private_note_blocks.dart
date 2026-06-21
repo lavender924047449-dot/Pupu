@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:pupu/features/private_space/private_note_image.dart';
 import 'package:pupu/features/private_space/private_space_ui.dart';
 import 'package:pupu/features/private_space/private_voice_sheet.dart';
 import 'package:pupu/models/private_entry.dart';
@@ -35,7 +34,7 @@ class InlineImageStack extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   child: AspectRatio(
                     aspectRatio: 1.55,
-                    child: _NoteImage(path: img.path),
+                    child: PrivateNoteImage(path: img.path),
                   ),
                 ),
               ),
@@ -61,7 +60,7 @@ class InlineImageStack extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: AspectRatio(
                   aspectRatio: 1.55,
-                  child: _NoteImage(path: img.path),
+                  child: PrivateNoteImage(path: img.path),
                 ),
               ),
               Positioned(
@@ -105,11 +104,13 @@ class InlineVoiceBubble extends StatefulWidget {
     super.key,
     required this.voice,
     required this.onRename,
+    this.onPlayTap,
     this.readOnly = false,
   });
 
   final PrivateVoiceData voice;
   final VoidCallback onRename;
+  final Future<void> Function(String path)? onPlayTap;
   final bool readOnly;
 
   @override
@@ -167,7 +168,13 @@ class _InlineVoiceBubbleState extends State<InlineVoiceBubble> {
               InkWell(
                 onTap: widget.readOnly
                     ? null
-                    : () => PrivateVoicePlayer.instance.toggle(voice.path),
+                    : () async {
+                        if (widget.onPlayTap != null) {
+                          await widget.onPlayTap!(voice.path);
+                          return;
+                        }
+                        await PrivateVoicePlayer.instance.toggle(voice.path);
+                      },
                 customBorder: const CircleBorder(),
                 child: Container(
                   width: 32,
@@ -288,7 +295,7 @@ class HistoryMixedContentPreview extends StatelessWidget {
             child: SizedBox(
               height: _historyImageHeight,
               width: double.infinity,
-              child: _NoteImage(path: imageOp.image.path),
+              child: PrivateNoteImage(path: imageOp.image.path),
             ),
           ),
         ],
@@ -312,31 +319,5 @@ class HistoryMixedContentPreview extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-class _NoteImage extends StatelessWidget {
-  const _NoteImage({required this.path});
-
-  final String path;
-
-  @override
-  Widget build(BuildContext context) {
-    if (path.startsWith('assets/')) {
-      return Image.asset(path, fit: BoxFit.cover);
-    }
-    if (path.startsWith('http')) {
-      return Image.network(path, fit: BoxFit.cover);
-    }
-    final file = File(path);
-    if (!file.existsSync()) {
-      return Container(
-        color: const Color(0x33141D2A),
-        child: const Center(
-          child: Icon(Icons.broken_image_outlined, color: Colors.white38),
-        ),
-      );
-    }
-    return Image.file(file, fit: BoxFit.cover);
   }
 }

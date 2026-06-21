@@ -1,6 +1,8 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show FileSystemException;
 import 'dart:math';
+
+import 'package:pupu/features/private_space/private_note_image.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pupu/core/app_typography.dart';
 import 'package:pupu/features/private_space/private_entry_sort.dart';
+import 'package:pupu/features/private_space/private_note_gallery_limits.dart';
 import 'package:pupu/features/private_space/private_note_document_controller.dart';
 import 'package:pupu/features/private_space/private_space_clipboard.dart';
 import 'package:pupu/features/private_space/private_space_history.dart';
@@ -16,16 +19,32 @@ import 'package:pupu/features/private_space/private_voice_sheet.dart';
 import 'package:pupu/features/private_space/private_space_background.dart';
 import 'package:pupu/features/private_space/private_space_notepad.dart';
 import 'package:pupu/features/private_space/private_space_categories.dart';
+import 'package:pupu/features/timer/widgets/audio_picker.dart';
 import 'package:pupu/models/private_entry.dart';
 import 'package:pupu/models/private_note_document.dart';
 import 'package:pupu/services/local_storage.dart';
 import 'package:pupu/services/private_media_storage.dart';
 import 'package:pupu/services/private_permission_helper.dart';
 import 'package:pupu/providers/entries_provider.dart';
+import 'package:pupu/providers/home_audio_provider.dart';
 
 enum _Stage { idle, transitioning, notepad, history }
 
+/// How to position the RECORDS list the next time history becomes visible.
+enum _HistoryScrollOnShow {
+  /// Fresh history mount — ListView starts at 0 naturally.
+  defaultTop,
+
+  /// Return from notepad — restore [_savedHistoryScrollOffset].
+  restoreSaved,
+
+  /// FAB new note saved — jump to top.
+  jumpToTop,
+}
+
 enum _ImageInsertAction { gallery, camera }
+
+enum _ImagePersistFailure { unavailable, tooLarge, saveFailed }
 
 class _CategoryData {
   const _CategoryData({
@@ -52,7 +71,10 @@ class PrivateSpaceScreen extends ConsumerStatefulWidget {
 
 class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     with TickerProviderStateMixin {
-  static const int _maxImagesPerNote = 30;
+  static const int _maxImagesPerNote = 35;
+  static const int _maxVoicesPerNote = 35;
+  static const int _maxGalleryPickCount = 5;
+  static const String _kSelectionLimitReached = 'Selection limit reached.';
   static const int _maxImageFileBytes = 12 * 1024 * 1024;
   static const Duration _stageSwitchDuration = Duration(milliseconds: 820);
 
@@ -74,8 +96,12 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   ];
 
   final ScrollController _noteScrollController = ScrollController();
-  final ScrollController _historyScrollController = ScrollController();
+  final ScrollController _historyListScrollController = ScrollController();
+  final ScrollController _categoryPanelScrollController = ScrollController();
   final Random _random = Random();
+
+  double _savedHistoryScrollOffset = 0;
+  _HistoryScrollOnShow _historyScrollOnShow = _HistoryScrollOnShow.defaultTop;
 
   PrivateNoteDocumentController? _docController;
 
@@ -93,24 +119,127 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   int _historySwipeCloseNonce = 0;
   final TextEditingController _categoryController = TextEditingController();
   final FocusNode _categoryFocusNode = FocusNode();
+  late final AnimationController _musicRotationController;
+  bool _voicePlaybackOwnsHomePause = false;
+  bool _resumeHomeMusicAfterVoicePlayback = false;
 
   @override
   void initState() {
     super.initState();
+    _musicRotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    );
+    PrivateVoicePlayer.instance.addListener(_onVoicePlayerChanged);
   }
 
   @override
   void dispose() {
+    PrivateVoicePlayer.instance.removeListener(_onVoicePlayerChanged);
     PrivateVoicePlayer.instance.stop();
+    _musicRotationController.dispose();
     _docController?.dispose();
     _noteScrollController.dispose();
-    _historyScrollController.dispose();
+    _historyListScrollController.dispose();
+    _categoryPanelScrollController.dispose();
     _categoryController.dispose();
     _categoryFocusNode.dispose();
     super.dispose();
   }
 
+  void _syncMusicRotation(bool isPlaying) {
+    if (isPlaying) {
+      if (!_musicRotationController.isAnimating) {
+        _musicRotationController.repeat();
+      }
+      return;
+    }
+    _musicRotationController.stop();
+  }
+
+  Future<void> _toggleHomeMusicFromSubPage() async {
+    await ref.read(homeAudioServiceProvider).toggleFromSubPage(ref);
+  }
+
+  void _onVoicePlayerChanged() {
+    if (!mounted) return;
+    unawaited(_resumeHomeMusicIfVoicePlaybackEnded());
+  }
+
+  Future<void> _resumeHomeMusicIfVoicePlaybackEnded() async {
+    if (!_voicePlaybackOwnsHomePause) return;
+    if (PrivateVoicePlayer.instance.playingPath != null) return;
+
+    final shouldResume = _resumeHomeMusicAfterVoicePlayback;
+    _voicePlaybackOwnsHomePause = false;
+    _resumeHomeMusicAfterVoicePlayback = false;
+    if (!shouldResume) return;
+    await ref.read(homeAudioServiceProvider).resume();
+  }
+
+  Future<void> _onVoicePlaybackToggle(String path) async {
+    final homeAudioService = ref.read(homeAudioServiceProvider);
+    final voicePlayer = PrivateVoicePlayer.instance;
+    final wasTargetPlaying = voicePlayer.isPlaying(path);
+
+    if (!wasTargetPlaying && !_voicePlaybackOwnsHomePause) {
+      final wasHomePlaying = ref.read(homeMusicPlayingProvider).value ?? false;
+      _voicePlaybackOwnsHomePause = true;
+      _resumeHomeMusicAfterVoicePlayback = wasHomePlaying;
+      if (wasHomePlaying) {
+        await homeAudioService.pauseByUser();
+      }
+    }
+
+    await voicePlayer.toggle(path);
+
+    if (wasTargetPlaying) {
+      await _resumeHomeMusicIfVoicePlaybackEnded();
+    }
+  }
+
   List<PrivateEntry> get _sortedEntries => sortPrivateEntriesForHistory(_entries);
+
+  void _captureHistoryListScrollOffset() {
+    if (_historyListScrollController.hasClients) {
+      _savedHistoryScrollOffset = _historyListScrollController.offset;
+    }
+  }
+
+  void _clearHistoryScrollMemory() {
+    _savedHistoryScrollOffset = 0;
+    _historyScrollOnShow = _HistoryScrollOnShow.defaultTop;
+  }
+
+  /// Applies pending scroll intent after history ListView lays out (may retry once).
+  void _applyPendingHistoryScroll() {
+    if (_historyScrollOnShow == _HistoryScrollOnShow.defaultTop) return;
+
+    final intent = _historyScrollOnShow;
+
+    void applyOnce() {
+      if (!mounted || _stage != _Stage.history) return;
+      if (_historyScrollOnShow == _HistoryScrollOnShow.defaultTop) return;
+      if (!_historyListScrollController.hasClients) return;
+
+      final maxExtent = _historyListScrollController.position.maxScrollExtent;
+      final target = switch (intent) {
+        _HistoryScrollOnShow.restoreSaved => clampHistoryScrollOffset(
+            savedOffset: _savedHistoryScrollOffset,
+            maxScrollExtent: maxExtent,
+          ),
+        _HistoryScrollOnShow.jumpToTop => 0.0,
+        _HistoryScrollOnShow.defaultTop => 0.0,
+      };
+      _historyListScrollController.jumpTo(target);
+      _historyScrollOnShow = _HistoryScrollOnShow.defaultTop;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      applyOnce();
+      WidgetsBinding.instance.addPostFrameCallback((_) => applyOnce());
+    });
+  }
 
   bool _isPinned(PrivateEntry entry) => entry.tags.contains('pinned');
 
@@ -133,7 +262,6 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
       _stage = _targetStage;
       if (_targetStage == _Stage.notepad) {
         _resetEditor();
-        _focusEditorAfterOpen();
       }
     });
   }
@@ -167,6 +295,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     _disposeDocController();
     _docController = PrivateNoteDocumentController(
       initial: entry?.document ?? PrivateNoteDocument.empty,
+      showEntryPlaceholder: entry == null,
     );
     _docController!.addListener(_onDocControllerChanged);
     _docController!.captureSavedBaseline();
@@ -180,21 +309,25 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     _docController?.redo();
   }
 
-  void _focusEditorAfterOpen() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _docController?.focusFirstText();
-    });
-  }
-
-  void _exitNotepad() {
+  void _returnToHistoryFromNotepad(_HistoryScrollOnShow scrollOnShow) {
     PrivateVoicePlayer.instance.stop();
     FocusManager.instance.primaryFocus?.unfocus();
     _editingEntryId = null;
     _disposeDocController(deferred: true);
-    setState(() {
-      _stage = _entries.isNotEmpty ? _Stage.history : _Stage.idle;
-    });
+    // No saved records — e.g. opened empty notepad from star and backed out.
+    if (_entries.isEmpty) {
+      setState(() => _stage = _Stage.idle);
+      return;
+    }
+    _historyScrollOnShow = scrollOnShow;
+    setState(() => _stage = _Stage.history);
+    _applyPendingHistoryScroll();
+  }
+
+  void _exitNotepad({
+    _HistoryScrollOnShow scrollOnShow = _HistoryScrollOnShow.restoreSaved,
+  }) {
+    _returnToHistoryFromNotepad(scrollOnShow);
   }
 
   /// Persists the current note when it has content. Returns false if empty/no controller.
@@ -226,6 +359,15 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
         );
 
     await LocalStorage.saveEntry(entry);
+    if (mounted) {
+      if (existing == null) {
+        _entries = [..._entries, entry];
+      } else {
+        _entries = _entries
+            .map((e) => e.id == entry.id ? entry : e)
+            .toList(growable: false);
+      }
+    }
     bumpEntriesRefresh(ref);
     if (mounted) controller.captureSavedBaseline();
     return true;
@@ -241,7 +383,9 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
         return;
       }
       await _persistNote(touchUpdatedAt: true);
-      if (mounted) _exitNotepad();
+      if (mounted) {
+        _exitNotepad(scrollOnShow: _HistoryScrollOnShow.jumpToTop);
+      }
       return;
     }
 
@@ -288,6 +432,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
       case _Stage.notepad:
         await _handleNotepadBack();
       case _Stage.history:
+        _clearHistoryScrollMemory();
         setState(() => _stage = _Stage.idle);
       case _Stage.idle:
         if (mounted) Navigator.of(context).pop();
@@ -299,12 +444,10 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   Future<void> _saveNote() async {
     if (!await _persistNote(touchUpdatedAt: true)) return;
     if (!mounted) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-    _editingEntryId = null;
-    _disposeDocController(deferred: true);
-    setState(() {
-      _stage = _Stage.history;
-    });
+    final wasNewNote = _editingEntryId == null;
+    _returnToHistoryFromNotepad(
+      wasNewNote ? _HistoryScrollOnShow.jumpToTop : _HistoryScrollOnShow.restoreSaved,
+    );
   }
 
   String _deriveTitle(String text) {
@@ -323,9 +466,9 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
           if (t != null && t.isNotEmpty) {
             return t.length <= 24 ? t : '${t.substring(0, 24)}...';
           }
-          return 'Voice note';
+          return 'Voice Note';
         case PrivateDocImageOp():
-          return 'Photo note';
+          return 'Photo Note';
         case PrivateDocTextOp(:final text):
           if (text.trim().isNotEmpty) return _deriveTitle(text);
       }
@@ -334,6 +477,11 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   }
 
   Future<void> _pickImage() async {
+    if ((_docController?.imageCount ?? 0) >= _maxImagesPerNote) {
+      _showSelectionLimitReached();
+      return;
+    }
+
     final action = await showPrivateActionSheet<_ImageInsertAction>(
       context: context,
       actions: const [
@@ -370,10 +518,18 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     }
 
     if ((_docController?.imageCount ?? 0) >= _maxImagesPerNote) {
-      _showPrivateSnackBar('Maximum $_maxImagesPerNote images per note.');
+      _showSelectionLimitReached();
       return;
     }
 
+    if (source == ImageSource.camera) {
+      await _pickSingleImage(source);
+    } else {
+      await _pickGalleryImages();
+    }
+  }
+
+  Future<void> _pickSingleImage(ImageSource source) async {
     XFile? picked;
     try {
       picked = await ImagePicker().pickImage(
@@ -392,54 +548,188 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
 
     if (picked == null || !mounted) return;
 
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    final persisted = await _persistPickedImage(
+      picked,
+      idSuffix: '',
+    );
+    if (!mounted) return;
+    if (persisted.failure != null) {
+      _showImagePersistFailureSnackBar(persisted.failure!);
+      return;
+    }
+    _docController?.insertImagesAtCaret([
+      PrivateImageData(
+        id: 'img_${persisted.id}',
+        path: persisted.path!,
+        source: source == ImageSource.camera ? 'camera' : 'gallery',
+      ),
+    ]);
+    setState(() {});
+  }
 
-    String path;
+  Future<void> _pickGalleryImages() async {
+    final currentCount = _docController?.imageCount ?? 0;
+    final pickLimit = galleryPickLimit(
+      currentImageCount: currentCount,
+      maxImagesPerNote: _maxImagesPerNote,
+      maxGalleryPickCount: _maxGalleryPickCount,
+    );
+    if (pickLimit <= 0) {
+      _showSelectionLimitReached();
+      return;
+    }
+
+    List<XFile> picked;
+    try {
+      picked = await ImagePicker().pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+        limit: pickLimit,
+      );
+    } on PlatformException {
+      _showPrivateSnackBar('Cannot access image picker. Please retry.');
+      return;
+    } catch (_) {
+      _showPrivateSnackBar('Image picker failed. Please retry.');
+      return;
+    }
+
+    if (picked.isEmpty || !mounted) return;
+
+    if (shouldRejectGalleryBatch(picked.length, pickLimit)) {
+      _showSelectionLimitReached();
+      return;
+    }
+
+    var tooLarge = 0;
+    var unavailable = 0;
+    var saveFailed = 0;
+    final images = <PrivateImageData>[];
+
+    for (var i = 0; i < picked.length; i++) {
+      if (!mounted) return;
+
+      final persisted = await _persistPickedImage(
+        picked[i],
+        idSuffix: '_$i',
+      );
+      if (persisted.failure == null && persisted.path != null) {
+        images.add(
+          PrivateImageData(
+            id: 'img_${persisted.id}',
+            path: persisted.path!,
+            source: 'gallery',
+          ),
+        );
+      } else {
+        switch (persisted.failure) {
+          case _ImagePersistFailure.unavailable:
+            unavailable++;
+          case _ImagePersistFailure.tooLarge:
+            tooLarge++;
+          case _ImagePersistFailure.saveFailed:
+            saveFailed++;
+          case null:
+            break;
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    if (images.isNotEmpty) {
+      _docController?.insertImagesAtCaret(images);
+      setState(() {});
+    }
+
+    final skipped = tooLarge + unavailable + saveFailed;
+    if (skipped > 0) {
+      _showGalleryImportSummary(
+        inserted: images.length,
+        tooLarge: tooLarge,
+        unavailable: unavailable,
+        saveFailed: saveFailed,
+      );
+    }
+  }
+
+  Future<({String id, String? path, _ImagePersistFailure? failure})>
+      _persistPickedImage(
+    XFile picked, {
+    required String idSuffix,
+  }) async {
+    final id = '${DateTime.now().microsecondsSinceEpoch}$idSuffix';
+
     try {
       final bytes = await picked.readAsBytes();
       if (bytes.isEmpty) {
-        _showPrivateSnackBar('Selected image is unavailable.');
-        return;
+        return (id: id, path: null, failure: _ImagePersistFailure.unavailable);
       }
       if (bytes.length > _maxImageFileBytes) {
-        _showPrivateSnackBar('Image is too large (max 12MB).');
-        return;
+        return (id: id, path: null, failure: _ImagePersistFailure.tooLarge);
       }
       final ext = _imageExtensionFromPath(picked.path);
-      path = await PrivateMediaStorage.persistImageBytes(
+      final path = await PrivateMediaStorage.persistImageBytes(
         bytes,
         id: id,
         extension: ext,
       );
+      return (id: id, path: path, failure: null);
     } on FileSystemException {
-      _showPrivateSnackBar('Failed to save image file.');
-      return;
+      return (id: id, path: null, failure: _ImagePersistFailure.saveFailed);
     } catch (_) {
-      _showPrivateSnackBar('Image import failed. Please try again.');
+      return (id: id, path: null, failure: _ImagePersistFailure.saveFailed);
+    }
+  }
+
+  void _showImagePersistFailureSnackBar(_ImagePersistFailure failure) {
+    switch (failure) {
+      case _ImagePersistFailure.unavailable:
+        _showPrivateSnackBar('Selected image is unavailable.');
+      case _ImagePersistFailure.tooLarge:
+        _showPrivateSnackBar('Image is too large (max 12MB).');
+      case _ImagePersistFailure.saveFailed:
+        _showPrivateSnackBar('Image import failed. Please try again.');
+    }
+  }
+
+  void _showGalleryImportSummary({
+    required int inserted,
+    required int tooLarge,
+    required int unavailable,
+    required int saveFailed,
+  }) {
+    final parts = <String>[];
+    if (tooLarge > 0) {
+      parts.add(
+        tooLarge == 1
+            ? '1 too large (12MB max)'
+            : '$tooLarge too large (12MB max)',
+      );
+    }
+    if (unavailable > 0) {
+      parts.add(unavailable == 1 ? '1 unavailable' : '$unavailable unavailable');
+    }
+    if (saveFailed > 0) {
+      parts.add(saveFailed == 1 ? '1 save failed' : '$saveFailed save failed');
+    }
+    final detail = parts.join(', ');
+
+    if (inserted == 0) {
+      _showPrivateSnackBar('Could not import selected images: $detail.');
       return;
     }
 
-    if (!mounted) return;
-    _insertImagePath(
-      id: id,
-      path: path,
-      source: source == ImageSource.camera ? 'camera' : 'gallery',
+    final skipped = tooLarge + unavailable + saveFailed;
+    _showPrivateSnackBar(
+      '$inserted ${inserted == 1 ? 'image' : 'images'} added. '
+      '$skipped skipped: $detail.',
     );
   }
 
-  void _insertImagePath({
-    required String id,
-    required String path,
-    required String source,
-  }) {
-    _docController?.insertImageAtCaret(
-      PrivateImageData(
-        id: 'img_$id',
-        path: path,
-        source: source,
-      ),
-    );
-    setState(() {});
+  void _showSelectionLimitReached() {
+    _showPrivateSnackBar(_kSelectionLimitReached);
   }
 
   static String _imageExtensionFromPath(String path) {
@@ -493,8 +783,6 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     );
 
     if (!mounted || _stage != _Stage.notepad) return;
-    // Return to editor context after fullscreen preview is dismissed.
-    _focusEditorAfterOpen();
   }
 
   Future<void> _showImageQuickActions(int opIndex, PrivateImageData image) async {
@@ -505,9 +793,9 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     final action = await showPrivateActionSheet<String>(
       context: context,
       actions: const [
-        PrivateSpaceAction(value: copy, icon: Icons.copy_outlined, label: 'Copy image'),
-        PrivateSpaceAction(value: cut, icon: Icons.content_cut_outlined, label: 'Cut image'),
-        PrivateSpaceAction(value: delete, icon: Icons.delete_outline, label: 'Delete image'),
+        PrivateSpaceAction(value: copy, icon: Icons.copy_outlined, label: 'Copy Image'),
+        PrivateSpaceAction(value: cut, icon: Icons.content_cut_outlined, label: 'Cut Image'),
+        PrivateSpaceAction(value: delete, icon: Icons.delete_outline, label: 'Delete Image'),
       ],
     );
     switch (action) {
@@ -556,12 +844,29 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   }
 
   Future<void> _addVoiceBlock() async {
+    if ((_docController?.voiceCount ?? 0) >= _maxVoicesPerNote) {
+      _showSelectionLimitReached();
+      return;
+    }
+
+    final homeAudioService = ref.read(homeAudioServiceProvider);
+    final wasHomePlaying = ref.read(homeMusicPlayingProvider).value ?? false;
+    if (wasHomePlaying) {
+      await homeAudioService.pauseByUser();
+    }
+    if (!mounted) return;
+
     final voice = await showModalBottomSheet<PrivateVoiceData>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const PrivateVoiceRecordSheet(),
     );
+
+    if (wasHomePlaying) {
+      await homeAudioService.resume();
+    }
+
     if (voice == null || !mounted) return;
     _docController?.insertVoiceAtCaret(voice);
     setState(() {});
@@ -570,8 +875,8 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   Future<void> _renameVoiceAt(int opIndex, PrivateVoiceData voice) async {
     final name = await showPrivateTextDialog(
       context: context,
-      title: 'Rename voice',
-      hintText: 'Optional title',
+      title: 'Rename Voice',
+      hintText: 'Optional Title',
       initialText: voice.title ?? '',
     );
     if (name == null || !mounted) return;
@@ -599,17 +904,19 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   }
 
   void _createNoteFromHistory() {
+    _captureHistoryListScrollOffset();
+    _historyScrollOnShow = _HistoryScrollOnShow.restoreSaved;
     _resetEditor();
     _editingEntryId = null;
     setState(() => _stage = _Stage.notepad);
-    _focusEditorAfterOpen();
   }
 
   void _editFromHistory(PrivateEntry entry) {
+    _captureHistoryListScrollOffset();
+    _historyScrollOnShow = _HistoryScrollOnShow.restoreSaved;
     _resetEditor(entry);
     _editingEntryId = entry.id;
     setState(() => _stage = _Stage.notepad);
-    _focusEditorAfterOpen();
   }
 
   void _toggleSelect(String id, {bool forceStartSelection = false}) {
@@ -769,9 +1076,9 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _categoryFocusNode.requestFocus();
-      if (_historyScrollController.hasClients) {
-        _historyScrollController.animateTo(
-          _historyScrollController.position.maxScrollExtent,
+      if (_categoryPanelScrollController.hasClients) {
+        _categoryPanelScrollController.animateTo(
+          _categoryPanelScrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
@@ -820,6 +1127,8 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
   @override
   Widget build(BuildContext context) {
     final asyncEntries = ref.watch(entriesWithRefreshProvider);
+    final isHomeMusicPlaying = ref.watch(homeMusicPlayingProvider).value ?? false;
+    _syncMusicRotation(isHomeMusicPlaying);
     final providerEntries = asyncEntries.value;
     if (providerEntries != null) {
       _entries = providerEntries;
@@ -878,6 +1187,24 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
               },
             ),
             if (_showMarkBoard) _buildMarkBoardOverlay(),
+            if (_stage == _Stage.idle)
+              Positioned(
+                right: 24,
+                bottom: 34,
+                child: TimerMusicButton(
+                  rotationAnimation: _musicRotationController,
+                  onTap: _toggleHomeMusicFromSubPage,
+                ),
+              ),
+            if (_stage == _Stage.notepad)
+              Positioned(
+                right: 24,
+                bottom: 34,
+                child: TimerMusicButton(
+                  rotationAnimation: _musicRotationController,
+                  onTap: _toggleHomeMusicFromSubPage,
+                ),
+              ),
           ],
         ),
       ),
@@ -896,6 +1223,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
       onSave: _saveNote,
       onPickImage: _pickImage,
       onAddVoiceBlock: _addVoiceBlock,
+      onVoicePlayTap: _onVoicePlaybackToggle,
       onVoiceRename: _renameVoiceAt,
       onVoiceDelete: _deleteVoiceAt,
       onImageDoubleTap: _openImagePreview,
@@ -935,17 +1263,29 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
                     const Spacer(),
                     Text(
                       _selectionMode
-                          ? '${_selectedEntries.length} SELECTED'
-                          : 'RECORDS',
+                          ? '${_selectedEntries.length} Selected'
+                          : 'Entries',
                       style: const TextStyle(
                         color: Color(0xFFFEF3C7),
-                        letterSpacing: 1.4,
+                        fontSize: 17,
+                        letterSpacing: 0,
                         fontWeight: FontWeight.w500,
                         fontFamily: 'SF Pro',
                       ),
                     ),
                     const Spacer(),
-                    const SizedBox(width: 48),
+                    SizedBox(
+                      width: 48,
+                      child: _selectionMode
+                          ? null
+                          : Align(
+                              alignment: Alignment.centerRight,
+                              child: TimerMusicButton(
+                                rotationAnimation: _musicRotationController,
+                                onTap: _toggleHomeMusicFromSubPage,
+                              ),
+                            ),
+                    ),
                   ],
                 ),
               ),
@@ -962,6 +1302,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
                             ),
                           )
                         : ListView.builder(
+                            controller: _historyListScrollController,
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                             itemCount: _sortedEntries.length,
                             itemBuilder: (_, i) {
@@ -1000,7 +1341,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          'Copied. You can share it now.',
+                                          'Copied to clipboard.',
                                           style: AppTypography.body(),
                                         ),
                                       ),
@@ -1049,7 +1390,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Copied. You can share it now.',
+                              'Copied to clipboard.',
                               style: AppTypography.body(),
                             ),
                           ),
@@ -1062,13 +1403,13 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
                       onTap: _batchDeleteSelected,
                     ),
                     _HistoryBottomAction(
-                      icon: Icons.sell_outlined,
-                      label: 'Mark',
+                      icon: Icons.folder_outlined,
+                      label: 'Category',
                       onTap: _openMarkBoard,
                     ),
                     _HistoryBottomAction(
                       icon: Icons.checklist_rtl,
-                      label: 'All',
+                      label: 'Select All',
                       onTap: _toggleSelectAll,
                     ),
                   ],
@@ -1082,7 +1423,7 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
 
   Widget _buildMarkBoardOverlay() {
     return PrivateSpaceCategoriesOverlay(
-      historyScrollController: _historyScrollController,
+      historyScrollController: _categoryPanelScrollController,
       categories: _categories.map((c) => c.toViewData()).toList(),
       isAddingCategory: _isAddingCategory,
       showDeleteForCategoryId: _showDeleteForCategoryId,
@@ -1109,6 +1450,9 @@ class _PrivateSpaceScreenState extends ConsumerState<PrivateSpaceScreen>
         setState(() {
           _showDeleteForCategoryId = categoryId;
         });
+      },
+      onDismissDeleteCategory: () {
+        setState(() => _showDeleteForCategoryId = null);
       },
       onApplyCategory: (category) {
         final hit = _categories.where((c) => c.id == category.id).firstOrNull;
@@ -1161,21 +1505,10 @@ class _PreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (path.startsWith('assets/')) {
-      return InteractiveViewer(
-        minScale: 0.8,
-        maxScale: 4,
-        child: Image.asset(path, fit: BoxFit.contain),
-      );
-    }
-    final file = File(path);
-    if (!file.existsSync()) {
-      return const Icon(Icons.broken_image_outlined, color: Colors.white38, size: 72);
-    }
     return InteractiveViewer(
       minScale: 0.8,
       maxScale: 4,
-      child: Image.file(file, fit: BoxFit.contain),
+      child: PrivateNoteImage(path: path, fit: BoxFit.contain, brokenIconSize: 72),
     );
   }
 }

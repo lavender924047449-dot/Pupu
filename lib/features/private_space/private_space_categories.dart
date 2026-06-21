@@ -29,6 +29,7 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
     required this.onStartAddCategory,
     required this.onDeleteCategory,
     required this.onShowDeleteCategory,
+    required this.onDismissDeleteCategory,
     required this.onApplyCategory,
   });
 
@@ -44,6 +45,7 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
   final VoidCallback onStartAddCategory;
   final void Function(String categoryId) onDeleteCategory;
   final void Function(String categoryId) onShowDeleteCategory;
+  final VoidCallback onDismissDeleteCategory;
   final void Function(PrivateSpaceCategoryData category) onApplyCategory;
 
   @override
@@ -52,7 +54,9 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
       child: Stack(
         children: [
           GestureDetector(
-            onTap: onClose,
+            onTap: showDeleteForCategoryId != null
+                ? onDismissDeleteCategory
+                : onClose,
             child: Container(color: Colors.black.withValues(alpha: 0.60)),
           ),
           Align(
@@ -72,19 +76,30 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(28)),
                   ),
-                  child: Column(
+                  child: GestureDetector(
+                    onTap: showDeleteForCategoryId != null
+                        ? onDismissDeleteCategory
+                        : null,
+                    behavior: HitTestBehavior.translucent,
+                    child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
                         children: [
-                          const Expanded(
-                            child: Text(
-                              'Select Category',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'SF Pro',
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: showDeleteForCategoryId != null
+                                  ? onDismissDeleteCategory
+                                  : null,
+                              behavior: HitTestBehavior.opaque,
+                              child: const Text(
+                                'Select Category',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'SF Pro',
+                                ),
                               ),
                             ),
                           ),
@@ -163,31 +178,30 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
                                           vertical: 10,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xE5EF4444),
+                                          color: category.color
+                                              .withValues(alpha: 0.28),
                                           borderRadius:
                                               BorderRadius.circular(14),
-                                          boxShadow: const [
-                                            BoxShadow(
-                                              color: Color(0x66EF4444),
-                                              blurRadius: 16,
-                                              offset: Offset(0, 4),
-                                            ),
-                                          ],
+                                          border: Border.all(
+                                            color: category.color
+                                                .withValues(alpha: 0.75),
+                                          ),
                                         ),
-                                        child: const Row(
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
                                               Icons.delete_outline,
-                                              color: Colors.white,
+                                              color: category.color,
                                               size: 18,
                                             ),
-                                            SizedBox(width: 8),
+                                            const SizedBox(width: 8),
                                             Text(
                                               'Delete',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color: category.color,
                                                 fontWeight: FontWeight.w600,
+                                                fontFamily: 'SF Pro',
                                               ),
                                             ),
                                           ],
@@ -204,7 +218,16 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(14),
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(14),
-                                      onTap: () => onApplyCategory(category),
+                                      onTap: () {
+                                        if (showDeleteForCategoryId != null) {
+                                          final dismissOnly =
+                                              showDeleteForCategoryId ==
+                                                  category.id;
+                                          onDismissDeleteCategory();
+                                          if (dismissOnly) return;
+                                        }
+                                        onApplyCategory(category);
+                                      },
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 14,
@@ -239,15 +262,6 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
                                                 ),
                                               ),
                                             ),
-                                            if (category.name != 'Uncategorized')
-                                              const Text(
-                                                'Long press to delete',
-                                                style: TextStyle(
-                                                  color: Colors.white60,
-                                                  fontSize: 12,
-                                                  fontFamily: 'SF Pro',
-                                                ),
-                                              ),
                                           ],
                                         ),
                                       ),
@@ -263,7 +277,13 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: onStartAddCategory,
+                          onPressed: () {
+                            if (showDeleteForCategoryId != null) {
+                              onDismissDeleteCategory();
+                              return;
+                            }
+                            onStartAddCategory();
+                          },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white70,
                             side: const BorderSide(color: Colors.white24),
@@ -277,6 +297,7 @@ class PrivateSpaceCategoriesOverlay extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ),
               ),

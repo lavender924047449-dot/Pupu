@@ -26,3 +26,8 @@ bool hasQuestionnaireAnswers(BowelRecord record) {
   final answers = record.questionnaireAnswers;
   return answers != null && answers.isNotEmpty;
 }
+
+/// Days that have at least one bowel record (same rule as Log Calendar).
+Set<DateTime> recordDaysFromRecords(Iterable<BowelRecord> records) {
+  return records.map((r) => normalizeDay(r.dateTime)).toSet();
+}

@@ -19,6 +19,7 @@ class PrivateSpaceNotepadStage extends StatelessWidget {
     required this.onSave,
     required this.onPickImage,
     required this.onAddVoiceBlock,
+    required this.onVoicePlayTap,
     required this.onVoiceRename,
     required this.onVoiceDelete,
     required this.onImageDoubleTap,
@@ -38,6 +39,7 @@ class PrivateSpaceNotepadStage extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onPickImage;
   final VoidCallback onAddVoiceBlock;
+  final Future<void> Function(String path) onVoicePlayTap;
   final void Function(int opIndex, PrivateVoiceData voice) onVoiceRename;
   final void Function(int opIndex, PrivateVoiceData voice) onVoiceDelete;
   final void Function(int opIndex, PrivateImageData image) onImageDoubleTap;
@@ -64,7 +66,7 @@ class PrivateSpaceNotepadStage extends StatelessWidget {
                 offset: const Offset(0, -14),
                 child: Container(
                   width: 312,
-                  height: 474,
+                  height: MediaQuery.sizeOf(context).height * 0.56,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
@@ -149,7 +151,7 @@ class PrivateSpaceNotepadStage extends StatelessWidget {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      DateFormat('yyyy / MM / dd').format(now),
+                                      DateFormat('MMM d, yyyy').format(now),
                                       style: AppTypography.body(
                                         color: const Color(0x9FD6D9DE),
                                         size: 13,
@@ -210,6 +212,7 @@ class PrivateSpaceNotepadStage extends StatelessWidget {
                                           controller: docController!,
                                           scrollController: noteScrollController,
                                           enabled: true,
+                                          onVoicePlayTap: onVoicePlayTap,
                                           onVoiceRename: onVoiceRename,
                                           onVoiceDelete: onVoiceDelete,
                                           onImageDoubleTap: onImageDoubleTap,

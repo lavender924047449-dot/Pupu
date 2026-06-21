@@ -52,6 +52,14 @@ class PrivateNoteDocument {
     return count;
   }
 
+  int get voiceCount {
+    var count = 0;
+    for (final op in ops) {
+      if (op is PrivateDocVoiceOp) count++;
+    }
+    return count;
+  }
+
   /// Total logical length of the linearized document.
   int get semanticLength =>
       ops.fold<int>(0, (sum, op) => sum + op.semanticLength);
